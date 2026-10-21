@@ -1,0 +1,5 @@
+# Sudowoodo setup tools 
+/inventory.ini
+/REAL_inventory.ini
+/test_wrappers.sh
+/tool_doc_sudowoodo_linux.md

