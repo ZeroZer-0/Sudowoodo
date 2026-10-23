@@ -6,6 +6,10 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_RM "$@" ;;
 esac
 
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_RM "$@"
+fi
 
 # Paths we protect — rm will claim success but do nothing to these
 PROTECTED=(
@@ -31,11 +35,6 @@ _is_protected() {
 
 # Separate protected args from safe args
 SAFE_ARGS=()
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_RM "$@"
-fi
 FLAGS=()
 BLOCKED=0
 

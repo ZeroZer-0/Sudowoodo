@@ -6,6 +6,10 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_MV "$@" ;;
 esac
 
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_MV "$@"
+fi
 
 PROTECTED=(
     "/usr/local/bin"
@@ -31,11 +35,6 @@ FLAGS=()
 
 for arg in "$@"; do
     case "$arg" in
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_MV "$@"
-fi
         -*) FLAGS+=("$arg") ;;
         *) ALL_ARGS+=("$arg") ;;
     esac

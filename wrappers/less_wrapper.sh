@@ -6,6 +6,10 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_LESS "$@" ;;
 esac
 
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_LESS "$@"
+fi
 
 PROTECTED=(
     "/usr/local/bin"
@@ -31,11 +35,6 @@ for arg in "$@"; do
         *)
             if _is_protected "$arg"; then
                 echo "${arg}: No such file or directory" >&2
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_LESS "$@"
-fi
                 exit 1
             fi
             ;;

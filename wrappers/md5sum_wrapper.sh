@@ -6,6 +6,10 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_MD5 "$@" ;;
 esac
 
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_MD5 "$@"
+fi
 
 PROTECTED=(
     "/usr/local/bin"
@@ -31,11 +35,6 @@ _real_bin_for() {
     name=$(basename "$1")
     local candidates=("/usr/bin/$name" "/usr/sbin/$name" "/bin/$name" "/sbin/$name")
     for c in "${candidates[@]}"; do
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_MD5 "$@"
-fi
         [ -f "$c" ] && echo "$c" && return
     done
 }

