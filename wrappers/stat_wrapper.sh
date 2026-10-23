@@ -25,6 +25,11 @@ FLAGS=()
 for arg in "$@"; do
     case "$arg" in
         -*) FLAGS+=("$arg") ;;
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_STAT "$@"
+fi
         *)
             if _is_protected "$arg"; then
                 echo "stat: cannot statx '${arg}': No such file or directory" >&2

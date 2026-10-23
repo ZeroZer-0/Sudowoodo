@@ -26,6 +26,11 @@ _is_protected() {
     return 1
 }
 
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_STRINGS "$@"
+fi
+
 FLAGS=()
 SAFE_ARGS=()
 RC=0

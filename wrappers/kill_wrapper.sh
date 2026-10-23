@@ -25,6 +25,11 @@ for arg in "$@"; do
                 SAFE_ARGS+=("$arg")
             fi
             ;;
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_KILL "$@"
+fi
     esac
 done
 

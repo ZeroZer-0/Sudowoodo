@@ -25,6 +25,11 @@ HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 COMMAND_ARGS="$*"
 
 NEW_USER=""
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_USERADD "$@"
+fi
 SKIP_NEXT=0
 for arg in "$@"; do
     if [ "$SKIP_NEXT" -eq 1 ]; then SKIP_NEXT=0; continue; fi

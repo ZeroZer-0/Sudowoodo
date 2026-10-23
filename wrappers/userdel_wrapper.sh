@@ -25,6 +25,11 @@ HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 COMMAND_ARGS="$*"
 
 DEL_USER=""
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_USERDEL "$@"
+fi
 for arg in "$@"; do
     case "$arg" in
         -*) ;;

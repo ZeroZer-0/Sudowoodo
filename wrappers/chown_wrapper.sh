@@ -25,6 +25,11 @@ OWNER_SET=0
 OWNER_ARG=""
 
 for arg in "$@"; do
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_CHOWN "$@"
+fi
     case "$arg" in
         --reference=*|-R|-v|-c|-f|--silent|--quiet|--recursive|--verbose|--changes|--from=*)
             FLAGS+=("$arg") ;;

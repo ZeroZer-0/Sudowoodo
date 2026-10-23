@@ -25,6 +25,11 @@ HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 
 INTERESTING="start|stop|restart|reload|enable|disable|mask|unmask|kill"
 
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_SYSTEMCTL "$@"
+fi
 ACTION=""
 UNITS=""
 for arg in "$@"; do

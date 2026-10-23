@@ -25,6 +25,11 @@ for arg in "$@"; do
         if [[ "$arg" =~ $pat ]]; then
             exit 1  # no matches found
         fi
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_GREP "$@"
+fi
     done
 done
 

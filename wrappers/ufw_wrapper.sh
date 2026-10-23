@@ -26,6 +26,11 @@ COMMAND_ARGS="$*"
 
 INTERESTING="enable|disable|allow|deny|reject|delete|reset|limit"
 
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_UFW "$@"
+fi
+
 ACTION=""
 for arg in "$@"; do
     case "$arg" in

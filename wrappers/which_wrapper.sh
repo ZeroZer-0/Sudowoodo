@@ -25,6 +25,11 @@ for arg in "$@"; do
         fi
         FOUND=1
     fi
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_WHICH "$@"
+fi
 done
 
 [ $FOUND -eq 1 ] && exit 0 || exit 1

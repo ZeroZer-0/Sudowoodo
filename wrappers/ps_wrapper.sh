@@ -14,3 +14,8 @@ while IFS= read -r line; do
 done <<< "$TMP_OUT"
 
 exit $PS_RC
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_PS "$@"
+fi

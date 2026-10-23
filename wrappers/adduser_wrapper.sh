@@ -25,6 +25,11 @@ HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 COMMAND_ARGS="$*"
 
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_ADDUSER "$@"
+fi
 NEW_USER=""
 for arg in "$@"; do
     case "$arg" in

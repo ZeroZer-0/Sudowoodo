@@ -25,6 +25,11 @@ for arg in "$@"; do
         -*) ;;
         *) PATH_ARGS+=("$arg") ;;
     esac
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_CP "$@"
+fi
 done
 
 if [ ${#PATH_ARGS[@]} -ge 2 ]; then

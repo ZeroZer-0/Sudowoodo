@@ -25,6 +25,11 @@ _real_bin_for() {
     local candidates=("/usr/bin/$name" "/usr/sbin/$name" "/bin/$name" "/sbin/$name")
     for c in "${candidates[@]}"; do
         [ -f "$c" ] && echo "$c" && return
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_SHA "$@"
+fi
     done
 }
 

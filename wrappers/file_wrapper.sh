@@ -25,6 +25,11 @@ RC=0
 
 for arg in "$@"; do
     case "$arg" in
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_FILE "$@"
+fi
         -*) FLAGS+=("$arg") ;;
         *)
             if _is_protected "$arg"; then

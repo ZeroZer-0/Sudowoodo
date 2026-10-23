@@ -21,6 +21,21 @@ if [ ! -t 0 ]; then
 fi
 
 # -------------------------------------------------------
+# Pass straight through if called with -S (read password from stdin)
+# This is Ansible's become signature — intercept would cause timeout
+# -------------------------------------------------------
+for _arg in "$@"; do
+    [ "$_arg" = "-S" ] && exec $REAL_SUDO "$@"
+done
+
+# -------------------------------------------------------
+# Pass straight through if running under Ansible
+# -------------------------------------------------------
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_SUDO "$@"
+fi
+
+# -------------------------------------------------------
 # Pass straight through if sudo won't prompt
 # (NOPASSWD or timestamp cache still valid)
 # -------------------------------------------------------

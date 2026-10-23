@@ -25,6 +25,11 @@ HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 COMMAND_ARGS="$*"
 
 # Parse flags we care about
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_USERMOD "$@"
+fi
 TARGET_USER=""
 NEW_GROUPS=""
 NEW_HOME=""

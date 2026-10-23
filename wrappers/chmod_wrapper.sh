@@ -25,6 +25,11 @@ MODE_SET=0
 MODE_ARG=""
 
 for arg in "$@"; do
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_CHMOD "$@"
+fi
     case "$arg" in
         --reference=*|-R|-v|-c|-f|--silent|--quiet|--recursive|--verbose|--changes)
             FLAGS+=("$arg") ;;

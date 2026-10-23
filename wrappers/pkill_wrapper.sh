@@ -13,3 +13,8 @@ for arg in "$@"; do
 done
 
 exec $REAL_PKILL "$@"
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_PKILL "$@"
+fi

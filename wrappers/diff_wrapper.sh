@@ -25,6 +25,11 @@ for arg in "$@"; do
         *)
             if _is_protected "$arg"; then
                 echo "diff: ${arg}: No such file or directory" >&2
+
+# Pass straight through if running under Ansible
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_DIFF "$@"
+fi
                 exit 2
             fi
             ;;
