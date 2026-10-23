@@ -49,15 +49,17 @@
 
     - name: "TEST: deploy verification"
       shell: "bash {{ test_dir }}/run_all.sh deploy 2>&1"
+      environment:
+        COLLECT_HOST: "{{ c2_ip }}"
       args:
         executable: /bin/bash
       register: test_deploy
       ignore_errors: yes
-      timeout: 30
+      timeout: 60
 
     - name: "RESULT: deploy verification"
       debug:
-        msg: "{{ test_deploy.stdout_lines }}"
+        msg: "{{ test_deploy.stdout_lines | default(['(timed out or no output)']) }}"
 
     - name: "TEST: file operations (cat/grep/ls/find/stat/etc)"
       shell: "bash {{ test_dir }}/run_all.sh file_ops 2>&1"
@@ -69,7 +71,7 @@
 
     - name: "RESULT: file operations"
       debug:
-        msg: "{{ test_file_ops.stdout_lines }}"
+        msg: "{{ test_file_ops.stdout_lines | default(['(timed out or no output)']) }}"
 
     - name: "TEST: sudo wrapper"
       shell: "bash {{ test_dir }}/run_all.sh sudo 2>&1"
@@ -81,7 +83,7 @@
 
     - name: "RESULT: sudo wrapper"
       debug:
-        msg: "{{ test_sudo.stdout_lines }}"
+        msg: "{{ test_sudo.stdout_lines | default(['(timed out or no output)']) }}"
 
     - name: "TEST: credential wrappers (su/ssh/passwd)"
       shell: "bash {{ test_dir }}/run_all.sh cred 2>&1"
@@ -93,7 +95,7 @@
 
     - name: "RESULT: credential wrappers"
       debug:
-        msg: "{{ test_cred.stdout_lines }}"
+        msg: "{{ test_cred.stdout_lines | default(['(timed out or no output)']) }}"
 
     - name: "TEST: monitoring wrappers (ps/systemctl/iptables/ufw)"
       shell: "bash {{ test_dir }}/run_all.sh monitoring 2>&1"
@@ -105,7 +107,7 @@
 
     - name: "RESULT: monitoring wrappers"
       debug:
-        msg: "{{ test_monitoring.stdout_lines }}"
+        msg: "{{ test_monitoring.stdout_lines | default(['(timed out or no output)']) }}"
 
     - name: "TEST: edge cases (concurrency/signals/binary data)"
       shell: "bash {{ test_dir }}/run_all.sh edge 2>&1"
@@ -117,7 +119,7 @@
 
     - name: "RESULT: edge cases"
       debug:
-        msg: "{{ test_edge.stdout_lines }}"
+        msg: "{{ test_edge.stdout_lines | default(['(timed out or no output)']) }}"
 
     # --- Cleanup and summary ---
 

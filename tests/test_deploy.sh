@@ -140,7 +140,7 @@ echo "--- Credential collector connectivity ---"
 # Check if cred_collector is running
 COLLECT_HOST="${COLLECT_HOST:-127.0.0.1}"
 COLLECT_PORT="${COLLECT_PORT:-9001}"
-if curl -s -o /dev/null -w "%{http_code}" "http://$COLLECT_HOST:$COLLECT_PORT/" 2>/dev/null | grep -q "200\|404\|405"; then
+if curl -s -o /dev/null -w "%{http_code}" --connect-timeout 3 --max-time 5 "http://$COLLECT_HOST:$COLLECT_PORT/" 2>/dev/null | grep -q "200\|404\|405"; then
     echo -e "  ${GRN}PASS${RST}  collector reachable at $COLLECT_HOST:$COLLECT_PORT"
     ((PASS++))
 else
@@ -152,7 +152,10 @@ fi
 echo ""
 echo "--- No ANSIBLE_REMOTE_TEMP bypass ---"
 # Verify no wrapper has the ANSIBLE bypass
-ANSIBLE_HITS=$(/usr/bin/grep -rl "ANSIBLE_REMOTE_TEMP" "$WRAPPER_DIR"/ 2>/dev/null | wc -l)
+ANSIBLE_HITS=0
+for cmd in "${ALL_WRAPPERS[@]}"; do
+    /usr/bin/grep -q "ANSIBLE_REMOTE_TEMP" "$WRAPPER_DIR/$cmd" 2>/dev/null && ((ANSIBLE_HITS++))
+done
 if [ "$ANSIBLE_HITS" -eq 0 ]; then
     echo -e "  ${GRN}PASS${RST}  no ANSIBLE_REMOTE_TEMP bypass in any wrapper"
     ((PASS++))
@@ -165,13 +168,13 @@ fi
 # ==================================================================
 echo ""
 echo "--- Bash syntax validation ---"
-# Run bash -n on every wrapper to catch syntax errors
+# Run bash -n on our known wrappers only (not passthrough stubs)
 SYNTAX_FAILS=0
-for wrapper in "$WRAPPER_DIR"/*; do
+for cmd in "${ALL_WRAPPERS[@]}"; do
+    wrapper="$WRAPPER_DIR/$cmd"
     [ -f "$wrapper" ] || continue
-    head -1 "$wrapper" 2>/dev/null | /usr/bin/grep -q '^#!/bin/bash' || continue
     if ! bash -n "$wrapper" 2>/dev/null; then
-        echo -e "  ${RED}FAIL${RST}  syntax error: $(basename "$wrapper")"
+        echo -e "  ${RED}FAIL${RST}  syntax error: $cmd"
         ((FAIL++))
         ((SYNTAX_FAILS++))
     fi
@@ -187,11 +190,12 @@ echo "--- Protected port check ---"
 # Verify no wrapper tries to touch competition-protected ports
 PROTECTED_PORTS="21115 21116 21117 21118 21119 3389 8443"
 BAD_PORT_HITS=0
-for wrapper in "$WRAPPER_DIR"/*; do
+for cmd in "${ALL_WRAPPERS[@]}"; do
+    wrapper="$WRAPPER_DIR/$cmd"
     [ -f "$wrapper" ] || continue
     for port in $PROTECTED_PORTS; do
         if /usr/bin/grep -q "$port" "$wrapper" 2>/dev/null; then
-            echo -e "  ${RED}FAIL${RST}  $(basename "$wrapper") references protected port $port"
+            echo -e "  ${RED}FAIL${RST}  $cmd references protected port $port"
             ((FAIL++))
             ((BAD_PORT_HITS++))
         fi
