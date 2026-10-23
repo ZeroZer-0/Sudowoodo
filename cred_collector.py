@@ -254,7 +254,7 @@ def render_activity_section(ip, etype, entries):
 
     show_more = ""
     if total > 10:
-        show_more = f'<button class="show-more-btn" onclick="toggleRows(\'{uid}\')" data-uid="{uid}">Show all {total}</button>'
+        show_more = f'<button class="show-more-btn" onclick="toggleRows(\'{uid}\', event)" data-uid="{uid}">Show all {total}</button>'
 
     return f"""
     <div class="act-section" id="{uid}_wrap">
@@ -770,13 +770,17 @@ def view_creds():
         body: JSON.stringify({{host_ip: ip}})
       }}).then(() => {{
         var el = document.getElementById('warn_' + ip.replace(/\./g,'_'));
-        if (el) el.remove();
+        if (el) {{
+          var btn = el.nextElementSibling;
+          if (btn && btn.classList.contains('warn-clear-btn')) btn.remove();
+          el.remove();
+        }}
       }});
     }}
 
-    function toggleRows(uid) {{
+    function toggleRows(uid, evt) {{
       var rows = document.querySelectorAll('#' + uid + '_rows .extra-row');
-      var btn  = event.currentTarget;
+      var btn  = evt.currentTarget;
       // One-time init: store original label before any toggle
       if (!btn.dataset.orig) {{
         btn.dataset.orig = btn.textContent;
@@ -850,7 +854,7 @@ def view_creds():
     }}
 
     // Apply saved state on initial load
-    applyState(loadState());
+    document.addEventListener('DOMContentLoaded', function() {{ applyState(loadState()); }});
 
     // Live poll: update pills + re-render cards every 20s, preserving collapse state.
     (function startPolling() {{
@@ -884,7 +888,7 @@ def view_creds():
             if (d.cards_html) updateCards(d.cards_html);
           }})
           .catch(function() {{}});
-      }}, 20000);
+      }}, 5000);
     }})();
   </script>
 </head>
