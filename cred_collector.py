@@ -10,8 +10,8 @@ VIEW_TOKEN = "chumbucket"
 
 LINUX_HOSTS = {
     "10.111.1.1": "shellphone",
-    "10.111.1.2": "bottlemail",
-    "10.111.1.3": "pattyvault",
+    "10.111.1.2": "pattyvault",
+    "10.111.1.3": "bottlemail",
     "10.111.1.4": "thesafe",
     "10.111.1.5": "krustyfront",
 }
