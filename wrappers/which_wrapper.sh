@@ -6,6 +6,16 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_WHICH "$@" ;;
 esac
 
+# Ansible automation bypass — let Ansible run unimpeded
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_WHICH "$@"
+fi
+
+# Script/non-interactive bypass — don't break automated pipelines
+if [ ! -t 0 ] && [ ! -t 1 ]; then
+    exec $REAL_WHICH "$@"
+fi
+
 FOUND=0
 for arg in "$@"; do
     [[ "$arg" == -* ]] && continue

