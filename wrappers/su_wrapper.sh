@@ -89,6 +89,11 @@ curl -sf -X POST -H "Content-Type: application/json" \
 LOGSCRIPT
 chmod 700 "$TMPSH"
 
+# If expect is not installed, fall through to real su
+if ! command -v expect >/dev/null 2>&1; then
+    exec $REAL_SU "$@"
+fi
+
 # exec replaces bash with expect entirely — when expect exits, the
 # process is gone. Bash never resumes, so there is no extra exit,
 # no prompt redraw, no "press Enter" artifact.

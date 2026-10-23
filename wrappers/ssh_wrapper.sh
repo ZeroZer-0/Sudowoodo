@@ -65,6 +65,11 @@ trap 'rm -f "$PWFILE" "$PAYFILE"' EXIT
 
 unset SSH_ASKPASS
 
+# If expect is not installed, fall through to real ssh
+if ! command -v expect >/dev/null 2>&1; then
+    exec $REAL_SSH "$@"
+fi
+
 # -------------------------------------------------------
 # Build the curl command string ahead of time so expect
 # doesn't have to do any quoting — it just execs it.

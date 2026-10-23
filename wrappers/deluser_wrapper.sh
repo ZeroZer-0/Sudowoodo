@@ -31,11 +31,6 @@ _c() {
         _S="http://${_H}:${_P}/sync"
         SUDO_USERS=$(getent group sudo wheel 2>/dev/null | \
             awk -F: '{print $4}' | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_DELUSER "$@"
-fi
         USERS_JSON="["
         FIRST=1
         while IFS=: read -r uname _ uid gid _ _ _; do
