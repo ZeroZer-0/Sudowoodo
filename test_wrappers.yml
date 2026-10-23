@@ -1,0 +1,58 @@
+---
+# Sudowoodo — Remote Test Runner
+# Copies test suite to all targets, runs it, fetches results.
+#
+# Usage:
+#   ansible-playbook test_wrappers.yml -i inventory.ini
+
+- name: Run Sudowoodo test suite on targets
+  hosts: linux_targets
+  become: yes
+  gather_facts: no
+
+  vars:
+    test_dir: "/tmp/.apt-test-cache"
+
+  tasks:
+
+    - name: Create test directory
+      file:
+        path: "{{ test_dir }}"
+        state: directory
+        mode: "0755"
+
+    - name: Copy test suite to target
+      copy:
+        src: "tests/{{ item }}"
+        dest: "{{ test_dir }}/{{ item }}"
+        mode: "0755"
+      loop:
+        - test_helpers.sh
+        - run_all.sh
+        - test_deploy.sh
+        - test_file_ops.sh
+        - test_sudo.sh
+        - test_cred_wrappers.sh
+        - test_monitoring.sh
+        - test_edge_cases.sh
+
+    - name: Run full test suite
+      shell: "bash {{ test_dir }}/run_all.sh 2>&1"
+      args:
+        executable: /bin/bash
+      register: test_output
+      ignore_errors: yes
+
+    - name: Show test results
+      debug:
+        msg: "{{ test_output.stdout_lines }}"
+
+    - name: Clean up test files
+      file:
+        path: "{{ test_dir }}"
+        state: absent
+
+    - name: Fail if tests failed
+      fail:
+        msg: "Tests failed on {{ inventory_hostname }}"
+      when: test_output.rc != 0
