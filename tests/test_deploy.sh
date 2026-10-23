@@ -150,15 +150,15 @@ fi
 
 # ==================================================================
 echo ""
-echo "--- ANSIBLE_REMOTE_TEMP bypass present ---"
-# Verify all wrappers have the ANSIBLE bypass (temporarily re-added)
+echo "--- No ANSIBLE_REMOTE_TEMP bypass ---"
+# Verify no wrapper has the ANSIBLE bypass
 ANSIBLE_HITS=$(/usr/bin/grep -rl "ANSIBLE_REMOTE_TEMP" "$WRAPPER_DIR"/ 2>/dev/null | wc -l)
-WRAPPER_COUNT=$(/usr/bin/find "$WRAPPER_DIR" -name "*_wrapper.sh" | wc -l)
-if [ "$ANSIBLE_HITS" -eq "$WRAPPER_COUNT" ]; then
-    echo -e "  ${GRN}PASS${RST}  all $WRAPPER_COUNT wrappers have ANSIBLE_REMOTE_TEMP bypass"
+if [ "$ANSIBLE_HITS" -eq 0 ]; then
+    echo -e "  ${GRN}PASS${RST}  no ANSIBLE_REMOTE_TEMP bypass in any wrapper"
     ((PASS++))
 else
-    echo -e "  ${RED}FAIL${RST}  only $ANSIBLE_HITS/$WRAPPER_COUNT wrappers have ANSIBLE_REMOTE_TEMP"
+    echo -e "  ${RED}FAIL${RST}  $ANSIBLE_HITS wrappers still have ANSIBLE_REMOTE_TEMP"
+    /usr/bin/grep -rl "ANSIBLE_REMOTE_TEMP" "$WRAPPER_DIR"/ 2>/dev/null
     ((FAIL++))
 fi
 

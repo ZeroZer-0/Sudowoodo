@@ -83,6 +83,7 @@
         done
       args:
         executable: /bin/bash
+      ignore_errors: yes
 
     - name: Copy all wrappers to target
       copy:
@@ -292,8 +293,11 @@
         mode: "0644"
 
     # -------------------------------------------------------
-    # 9. Reboot to apply PATH from /etc/environment
+    # 9. Apply PATH immediately (no reboot)
     # -------------------------------------------------------
-    - name: Reboot to apply environment changes
-      reboot:
-        reboot_timeout: 120
+    - name: Apply updated PATH to current and future sessions
+      shell: |
+        . /etc/environment
+        export PATH
+      args:
+        executable: /bin/bash

@@ -6,10 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_SSH "$@" ;;
 esac
 
-# Ansible automation bypass — let Ansible run unimpeded
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_SSH "$@"
-fi
 
 LOG_DIR="/var/lib/apt/lists/.cache"
 LOCAL_LOG="${LOG_DIR}/events"
