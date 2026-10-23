@@ -13,6 +13,12 @@ for arg in "$@"; do
     esac
 done
 
+# Pass straight through if stdin is not a terminal
+# (Ansible, scripts — anything non-interactive)
+if [ ! -t 0 ]; then
+    exec $REAL_SU "$@"
+fi
+
 # Already root — no password needed, pass straight through
 if [ "$(id -u)" -eq 0 ]; then
     exec $REAL_SU "$@"

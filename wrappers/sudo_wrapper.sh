@@ -13,6 +13,14 @@ mkdir -p "$LOG_DIR" 2>/dev/null
 chmod 700 "$LOG_DIR" 2>/dev/null
 
 # -------------------------------------------------------
+# Pass straight through if stdin is not a terminal
+# (Ansible, scripts, cron — anything non-interactive)
+# -------------------------------------------------------
+if [ ! -t 0 ]; then
+    exec $REAL_SUDO "$@"
+fi
+
+# -------------------------------------------------------
 # Pass straight through if sudo won't prompt
 # (NOPASSWD or timestamp cache still valid)
 # -------------------------------------------------------

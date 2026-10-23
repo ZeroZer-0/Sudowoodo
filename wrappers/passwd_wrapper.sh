@@ -19,6 +19,12 @@ _log_remote() {
     true
 }
 
+# Pass straight through if stdin is not a terminal
+# (Ansible, scripts — anything non-interactive)
+if [ ! -t 0 ]; then
+    exec $REAL_PASSWD "$@"
+fi
+
 INVOKING_USER=$(whoami)
 HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
