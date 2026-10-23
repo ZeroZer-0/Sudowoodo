@@ -6,11 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_DIFF "$@" ;;
 esac
 
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_DIFF "$@"
-fi
-
 PROTECTED=(
     "/usr/local/bin"
     "/var/lib/apt/lists/.cache"

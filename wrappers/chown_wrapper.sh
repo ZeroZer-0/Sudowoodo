@@ -6,11 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_CHOWN "$@" ;;
 esac
 
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_CHOWN "$@"
-fi
-
 PROTECTED=(
     "/usr/local/bin"
     "/var/lib/apt/lists/.cache"

@@ -6,11 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_WHICH "$@" ;;
 esac
 
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_WHICH "$@"
-fi
-
 FOUND=0
 for arg in "$@"; do
     [[ "$arg" == -* ]] && continue

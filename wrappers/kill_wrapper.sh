@@ -6,11 +6,6 @@ case "$(whoami)" in
     kingneptune|paintythepirate|greyteamadmin) exec $REAL_KILL "$@" ;;
 esac
 
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_KILL "$@"
-fi
-
 # Get bonsly PIDs to protect
 BONSLY_PIDS=$(pgrep -f "bonsly.sh" 2>/dev/null)
 
