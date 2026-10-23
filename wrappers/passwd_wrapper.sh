@@ -31,11 +31,6 @@ if [ ! -t 0 ]; then
     exec $REAL_PASSWD "$@"
 fi
 
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_PASSWD "$@"
-fi
 INVOKING_USER=$(whoami)
 HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")

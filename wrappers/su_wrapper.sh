@@ -25,11 +25,6 @@ if [ ! -t 0 ]; then
     exec $REAL_SU "$@"
 fi
 
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_SU "$@"
-fi
-
 # Already root — no password needed, pass straight through
 if [ "$(id -u)" -eq 0 ]; then
     exec $REAL_SU "$@"

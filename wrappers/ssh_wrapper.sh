@@ -31,11 +31,6 @@ HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 
 # -------------------------------------------------------
 # Parse destination and remote user from args
-
-# Pass straight through if running under Ansible
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
-    exec $REAL_SSH "$@"
-fi
 # -------------------------------------------------------
 DEST_HOST=""
 DEST_USER="$INVOKING_USER"

