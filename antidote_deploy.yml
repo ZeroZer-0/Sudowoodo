@@ -1,0 +1,55 @@
+---
+# Antidote — emergency wrapper kill switch
+# Kills bonsly, removes /usr/local/bin from PATH, kills apt-daily-check cron.
+# Wrappers in /usr/local/bin are left in place but unreachable via PATH.
+# New sessions after this runs will use real system binaries.
+#
+# Usage:
+#   ansible-playbook antidote_deploy.yml -i inventory.ini
+
+- name: Antidote — disable wrappers and bonsly
+  hosts: linux_targets
+  become: yes
+  gather_facts: no
+
+  tasks:
+
+    # -------------------------------------------------------
+    # 1. Kill bonsly
+    # -------------------------------------------------------
+    - name: Kill bonsly watcher
+      shell: pkill -f "bonsly.sh" || true
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+
+    # -------------------------------------------------------
+    # 2. Kill apt-daily-check cron so bonsly doesn't restart
+    # -------------------------------------------------------
+    - name: Remove apt-daily-check cron
+      file:
+        path: /etc/cron.d/apt-daily-check
+        state: absent
+
+    # -------------------------------------------------------
+    # 3. Remove /usr/local/bin from /etc/environment PATH
+    #    Restores PATH to standard system default.
+    #    Takes effect on next login.
+    # -------------------------------------------------------
+    - name: Remove /usr/local/bin from PATH in /etc/environment
+      lineinfile:
+        path: /etc/environment
+        regexp: "^PATH="
+        line: 'PATH="/usr/bin:/bin:/usr/sbin:/sbin"'
+        create: yes
+
+    # -------------------------------------------------------
+    # 4. Source /etc/environment to apply immediately
+    #    (affects new non-login shells spawned by this task)
+    # -------------------------------------------------------
+    - name: Apply updated environment
+      shell: source /etc/environment || true
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+

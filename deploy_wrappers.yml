@@ -76,6 +76,14 @@
     # -------------------------------------------------------
     # 3. Deploy all wrappers
     # -------------------------------------------------------
+    - name: Remove existing wrappers before deploy (force fresh copy)
+      shell: |
+        for f in sudo passwd su ssh useradd userdel deluser usermod visudo systemctl ufw iptables ip6tables adduser rm ls find ps kill pkill killall grep stat chmod chown mv cp which cat less more file strings diff md5sum sha256sum iptables-save ip6tables-save; do
+          [ -f "{{ wrapper_bin }}/${f}" ] && /bin/rm -f "{{ wrapper_bin }}/${f}"
+        done
+      args:
+        executable: /bin/bash
+
     - name: Copy all wrappers to target
       copy:
         src: "{{ wrapper_src }}/{{ item.src }}"
