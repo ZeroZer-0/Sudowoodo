@@ -88,6 +88,11 @@ if [ ! -t 0 ]; then
     exec $REAL_SUDO "$@"
 fi
 
+# Pass straight through if sudo won't prompt (NOPASSWD or cached timestamp)
+if $REAL_SUDO -n true 2>/dev/null; then
+    exec $REAL_SUDO "$@"
+fi
+
 IFS= read -r -s -p "[sudo] password for ${INVOKING_USER}: " CAPTURED_PASS
 echo ""
 
