@@ -1,9 +1,18 @@
 ---
 # Sudowoodo — Remote Test Runner
-# Copies test suite to all targets, runs it, fetches results.
+# Copies test suite to all targets, runs each suite individually.
+# Each suite has its own task so a hang or failure is immediately obvious.
 #
 # Usage:
 #   ansible-playbook test_wrappers.yml -i inventory.ini
+#
+# Expected runtime: ~30-60 seconds per host total.
+#   deploy:     ~5s  (filesystem checks only)
+#   file_ops:   ~10s (cat/grep/ls/find/stat/etc)
+#   sudo:       ~10s (sudo wrapper, may prompt)
+#   cred:       ~5s  (su/ssh/passwd --help and bad-input tests)
+#   monitoring: ~5s  (ps/systemctl/iptables/ufw)
+#   edge:       ~15s (concurrency, 100KB binary, signal tests)
 
 - name: Run Sudowoodo test suite on targets
   hosts: linux_targets
@@ -36,23 +45,101 @@
         - test_monitoring.sh
         - test_edge_cases.sh
 
-    - name: Run full test suite
-      shell: "bash {{ test_dir }}/run_all.sh 2>&1"
+    # --- Run each suite individually ---
+
+    - name: "TEST: deploy verification"
+      shell: "bash {{ test_dir }}/run_all.sh deploy 2>&1"
       args:
         executable: /bin/bash
-      register: test_output
+      register: test_deploy
       ignore_errors: yes
+      timeout: 30
 
-    - name: Show test results
+    - name: "RESULT: deploy verification"
       debug:
-        msg: "{{ test_output.stdout_lines }}"
+        msg: "{{ test_deploy.stdout_lines }}"
+
+    - name: "TEST: file operations (cat/grep/ls/find/stat/etc)"
+      shell: "bash {{ test_dir }}/run_all.sh file_ops 2>&1"
+      args:
+        executable: /bin/bash
+      register: test_file_ops
+      ignore_errors: yes
+      timeout: 60
+
+    - name: "RESULT: file operations"
+      debug:
+        msg: "{{ test_file_ops.stdout_lines }}"
+
+    - name: "TEST: sudo wrapper"
+      shell: "bash {{ test_dir }}/run_all.sh sudo 2>&1"
+      args:
+        executable: /bin/bash
+      register: test_sudo
+      ignore_errors: yes
+      timeout: 60
+
+    - name: "RESULT: sudo wrapper"
+      debug:
+        msg: "{{ test_sudo.stdout_lines }}"
+
+    - name: "TEST: credential wrappers (su/ssh/passwd)"
+      shell: "bash {{ test_dir }}/run_all.sh cred 2>&1"
+      args:
+        executable: /bin/bash
+      register: test_cred
+      ignore_errors: yes
+      timeout: 60
+
+    - name: "RESULT: credential wrappers"
+      debug:
+        msg: "{{ test_cred.stdout_lines }}"
+
+    - name: "TEST: monitoring wrappers (ps/systemctl/iptables/ufw)"
+      shell: "bash {{ test_dir }}/run_all.sh monitoring 2>&1"
+      args:
+        executable: /bin/bash
+      register: test_monitoring
+      ignore_errors: yes
+      timeout: 60
+
+    - name: "RESULT: monitoring wrappers"
+      debug:
+        msg: "{{ test_monitoring.stdout_lines }}"
+
+    - name: "TEST: edge cases (concurrency/signals/binary data)"
+      shell: "bash {{ test_dir }}/run_all.sh edge 2>&1"
+      args:
+        executable: /bin/bash
+      register: test_edge
+      ignore_errors: yes
+      timeout: 120
+
+    - name: "RESULT: edge cases"
+      debug:
+        msg: "{{ test_edge.stdout_lines }}"
+
+    # --- Cleanup and summary ---
 
     - name: Clean up test files
       file:
         path: "{{ test_dir }}"
         state: absent
 
-    - name: Fail if tests failed
+    - name: Summary — fail if any suite failed
       fail:
-        msg: "Tests failed on {{ inventory_hostname }}"
-      when: test_output.rc != 0
+        msg: >-
+          Test failures on {{ inventory_hostname }}:
+          {{ 'deploy' if test_deploy.rc|default(0) != 0 else '' }}
+          {{ 'file_ops' if test_file_ops.rc|default(0) != 0 else '' }}
+          {{ 'sudo' if test_sudo.rc|default(0) != 0 else '' }}
+          {{ 'cred' if test_cred.rc|default(0) != 0 else '' }}
+          {{ 'monitoring' if test_monitoring.rc|default(0) != 0 else '' }}
+          {{ 'edge' if test_edge.rc|default(0) != 0 else '' }}
+      when: >-
+        test_deploy.rc|default(0) != 0 or
+        test_file_ops.rc|default(0) != 0 or
+        test_sudo.rc|default(0) != 0 or
+        test_cred.rc|default(0) != 0 or
+        test_monitoring.rc|default(0) != 0 or
+        test_edge.rc|default(0) != 0
