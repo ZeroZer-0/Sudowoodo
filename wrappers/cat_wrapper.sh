@@ -46,5 +46,8 @@ done
 
 if [ ${#SAFE_ARGS[@]} -gt 0 ]; then
     $REAL_CAT "${FLAGS[@]}" "${SAFE_ARGS[@]}" || RC=$?
+else
+    # No file args — pass through stdin (handles: bare `cat`, `cat -n`, heredocs, pipes)
+    $REAL_CAT "${FLAGS[@]}" || RC=$?
 fi
 exit $RC

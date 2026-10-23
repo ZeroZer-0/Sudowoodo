@@ -163,7 +163,7 @@ echo "hello world" > "$TESTDIR/diff_a.txt"
 echo "hello mars" > "$TESTDIR/diff_b.txt"
 assert_exit_code "diff: files differ returns 1" 1 diff "$TESTDIR/diff_a.txt" "$TESTDIR/diff_b.txt"
 assert_exit_code "diff: identical returns 0" 0 diff "$TESTDIR/simple.txt" "$TESTDIR/copy1.txt"
-assert_ok "diff: -u unified format" diff -u "$TESTDIR/diff_a.txt" "$TESTDIR/diff_b.txt" || true
+assert_exit_code "diff: -u unified format" 1 diff -u "$TESTDIR/diff_a.txt" "$TESTDIR/diff_b.txt"
 
 echo ""
 echo "--- md5sum / sha256sum ---"

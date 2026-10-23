@@ -29,7 +29,7 @@ echo -e "  ${YLW}SKIP${RST}  su - \$USER: behavior varies by system"
 assert_ok "su: --help" su --help 2>/dev/null || true
 
 # su with nonexistent user (should fail cleanly)
-assert_fail "su: nonexistent user" su nonexistent_user_$$ -c "echo hi" </dev/null
+assert_fail "su: nonexistent user" timeout 5 su nonexistent_user_$$ -c "echo hi" </dev/null
 
 # su with special characters in intended password (if we could test it)
 echo -e "  ${YLW}SKIP${RST}  su: special char password (manual test)"
@@ -104,10 +104,10 @@ assert_fail "ssh: -o ProxyCommand" \
     -o BatchMode=yes localhost true 2>/dev/null
 
 # su with -s (specify shell)
-assert_fail "su: -s /bin/sh" su -s /bin/sh -c "echo test" nobody </dev/null 2>/dev/null
+assert_fail "su: -s /bin/sh" timeout 5 su -s /bin/sh -c "echo test" nobody </dev/null 2>/dev/null
 
 # su with - (login shell)
-assert_fail "su: - (login shell)" su - -c "echo test" </dev/null 2>/dev/null
+assert_fail "su: - (login shell)" timeout 5 su - -c "echo test" </dev/null 2>/dev/null
 
 echo ""
 summary

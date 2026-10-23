@@ -35,11 +35,20 @@ for arg in "$@"; do
     done
 done
 
-# Run real grep but suppress output lines referencing hidden paths
-$REAL_GREP "$@" | while IFS= read -r line; do
-    # grep output format is "filepath:match" — check the path portion
-    path="${line%%:*}"
-    _is_hidden_path "$path" || echo "$line"
+# For recursive grep, filter hidden paths from output
+HAS_RECURSIVE=0
+for a in "$@"; do
+    case "$a" in -r|-R|--recursive) HAS_RECURSIVE=1; break;; esac
 done
 
-exit ${PIPESTATUS[0]}
+if [ $HAS_RECURSIVE -eq 1 ]; then
+    $REAL_GREP "$@" 2>/dev/null | {
+        while IFS= read -r line; do
+            path="${line%%:*}"
+            _is_hidden_path "$path" || printf '%s\n' "$line"
+        done
+    }
+    exit ${PIPESTATUS[0]}
+else
+    exec $REAL_GREP "$@"
+fi
