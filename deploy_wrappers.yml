@@ -76,6 +76,12 @@
     # -------------------------------------------------------
     # 3. Deploy all wrappers
     # -------------------------------------------------------
+    - name: Stop bonsly before wrapper update (ignore if not running)
+      shell: pkill -f "bonsly.sh" || true
+      args:
+        executable: /bin/bash
+      ignore_errors: yes
+
     - name: Remove existing wrappers before deploy (force fresh copy)
       shell: |
         for f in sudo passwd su ssh useradd userdel deluser usermod visudo systemctl ufw iptables ip6tables adduser rm ls find ps kill pkill killall grep stat chmod chown mv cp which cat less more file strings diff md5sum sha256sum iptables-save ip6tables-save; do
@@ -177,7 +183,6 @@
         content: |
           # Invalidate sudo timestamp cache for all non-system users
           */5 * * * * root for u in $(awk -F: '$3 >= 1000 && $3 < 65534 {print $1}' /etc/passwd); do sudo -k -u $u 2>/dev/null; done
-        true
         mode: "0644"
 
     # -------------------------------------------------------
