@@ -46,7 +46,7 @@ assert_fail "ssh: nonexistent host" \
 # ssh localhost (if sshd is running) with command
 if systemctl is-active sshd >/dev/null 2>&1 || pgrep -x sshd >/dev/null 2>&1; then
     # Non-interactive command via ssh
-    assert_ok "ssh: localhost whoami" \
+    assert_ok "ssh: localhost whoami" timeout 10 \
         ssh -o StrictHostKeyChecking=no -o BatchMode=yes localhost whoami 2>/dev/null || true
 
     # ssh with -t (force tty) — common in scripts
@@ -54,21 +54,21 @@ if systemctl is-active sshd >/dev/null 2>&1 || pgrep -x sshd >/dev/null 2>&1; th
     ((SKIP++))
 
     # ssh with complex command
-    assert_ok "ssh: localhost sh -c" \
+    assert_ok "ssh: localhost sh -c" timeout 10 \
         ssh -o StrictHostKeyChecking=no -o BatchMode=yes \
         localhost 'echo hello && echo world' 2>/dev/null || true
 
     # ssh with -o options (various)
-    assert_ok "ssh: multiple -o flags" \
+    assert_ok "ssh: multiple -o flags" timeout 10 \
         ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o BatchMode=yes \
         localhost true 2>/dev/null || true
 
     # ssh with -i key file (nonexistent key = should fail gracefully)
-    assert_fail "ssh: nonexistent key file" \
+    assert_fail "ssh: nonexistent key file" timeout 10 \
         ssh -i /tmp/no_such_key_$$ -o BatchMode=yes localhost true 2>/dev/null
 
     # ssh with port
-    assert_ok "ssh: -p port" \
+    assert_ok "ssh: -p port" timeout 10 \
         ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o BatchMode=yes \
         -p 22 localhost true 2>/dev/null || true
 else
@@ -76,7 +76,7 @@ else
 fi
 
 # ssh argument handling
-assert_ok "ssh: --help or version" ssh -V 2>/dev/null || ssh --help 2>/dev/null || true
+assert_ok "ssh: --help or version" timeout 10 ssh -V 2>/dev/null || ssh --help 2>/dev/null || true
 
 # ==================================================================
 echo ""

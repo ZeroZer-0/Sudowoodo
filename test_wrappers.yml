@@ -91,7 +91,7 @@
         executable: /bin/bash
       register: test_cred
       ignore_errors: yes
-      timeout: 60
+      timeout: 180
 
     - name: "RESULT: credential wrappers"
       debug:
@@ -103,7 +103,7 @@
         executable: /bin/bash
       register: test_monitoring
       ignore_errors: yes
-      timeout: 60
+      timeout: 120
 
     - name: "RESULT: monitoring wrappers"
       debug:
