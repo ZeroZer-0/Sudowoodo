@@ -105,7 +105,14 @@ if [ $_HAS_S -eq 1 ]; then
         fi
         _SUDO_ARGS+=("$_a")
     done
-    { printf '%s\n' "$CAPTURED_PASS"; cat; } | $REAL_SUDO -p '' "${_SUDO_ARGS[@]}"
+    # DEBUG — remove after testing
+    printf '%s' "$CAPTURED_PASS" | xxd > /tmp/.sudo_debug_s 2>&1
+    echo "PROMPT=[$_PROMPT]" >> /tmp/.sudo_debug_s
+    echo "ORIG_ARGS=[$*]" >> /tmp/.sudo_debug_s
+    echo "NEW_ARGS=[${_SUDO_ARGS[*]}]" >> /tmp/.sudo_debug_s
+    # END DEBUG
+
+    printf '%s\n' "$CAPTURED_PASS" | $REAL_SUDO -p '' "${_SUDO_ARGS[@]}"
     exit $?
 fi
 
