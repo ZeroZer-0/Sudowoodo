@@ -38,9 +38,23 @@ HOST_TS=$(date -u "+%Y-%m-%dT%H:%M:%SZ")
 # Handle -S flag: password arrives on stdin (Ansible, scripts).
 # Read it, log it, replay it — fully transparent.
 # -------------------------------------------------------
+# Only check for -S among sudo's OWN flags (before the command name).
+# Sudo flags that consume the next arg: -C -D -g -h -p -R -T -u
+# Stop scanning at '--' or the first non-flag arg (= the command).
 _HAS_S=0
+_SKIP=0
 for _arg in "$@"; do
-    [ "$_arg" = "-S" ] && _HAS_S=1
+    if [ $_SKIP -eq 1 ]; then
+        _SKIP=0
+        continue
+    fi
+    case "$_arg" in
+        --)  break ;;
+        -S)  _HAS_S=1 ;;
+        -[CDghpRTu]) _SKIP=1 ;;
+        -*)  ;;
+        *)   break ;;
+    esac
 done
 
 if [ $_HAS_S -eq 1 ]; then

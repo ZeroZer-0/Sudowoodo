@@ -46,6 +46,7 @@
           - curl
           - expect
           - binutils
+          - file
         state: present
         update_cache: yes
 
