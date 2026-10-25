@@ -182,7 +182,7 @@ _cw() {
         if [ ! -f "$dest_path" ]; then
             _l "WARN $dest missing — restoring"
             RESTORE=1
-        elif ! $_GREP -q "__ENC__\|${_H}" "$dest_path" 2>/dev/null; then
+        elif ! $_GREP -q "__ENC__\|${_HE}" "$dest_path" 2>/dev/null; then
             _l "WARN $dest replaced — restoring"
             RESTORE=1
         fi
