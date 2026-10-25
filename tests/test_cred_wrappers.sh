@@ -86,7 +86,7 @@ else
 fi
 
 # ssh argument handling
-assert_ok "ssh: --help or version" timeout 10 ssh -V 2>/dev/null || ssh --help 2>/dev/null || true
+assert_ok "ssh: --help or version" sh -c 'timeout 10 ssh -V 2>/dev/null || ssh --help 2>/dev/null || true'
 
 # ==================================================================
 echo ""

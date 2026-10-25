@@ -201,10 +201,16 @@ assert_fail "kill: nonexistent PID" kill 99999999
 
 echo ""
 echo "--- Special character stress tests ---"
-# Filenames with nasty chars through wrappers
-# Pre-check: verify test files exist before blaming wrappers
+# TESTDIR sometimes disappears by this point (root cause TBD).
+# Defensive: recreate it so special-char tests are self-contained.
+if [ ! -d "$TESTDIR" ]; then
+    echo "  WARN  TESTDIR was deleted — recreating for special-char tests"
+    mkdir -p "$TESTDIR"
+fi
 echo 'content' > "$TESTDIR/back\\slash.txt"
-echo 'special content' >> "$TESTDIR/has spaces.txt"
+echo 'special content' > "$TESTDIR/has spaces.txt"
+touch "$TESTDIR/has\"quotes.txt"
+echo 'dollar' > "$TESTDIR/has\$dollar.txt"
 
 if [ -f "$TESTDIR/back\\slash.txt" ]; then
     assert_ok "special: cat backslash filename" cat "$TESTDIR/back\\slash.txt"
