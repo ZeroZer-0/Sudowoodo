@@ -64,6 +64,18 @@ for arg in "$@"; do
     esac
 done
 
+# Pass through for informational flags (no connection, no password)
+for arg in "$@"; do
+    case "$arg" in
+        -V|-G|--help) exec $REAL_SSH "$@" ;;
+    esac
+done
+
+# BatchMode=yes means no interactive password prompt — nothing to capture
+case "$*" in
+    *BatchMode=yes*) exec $REAL_SSH "$@" ;;
+esac
+
 # Pass straight through if stdin is not a terminal
 # (Ansible, scripts, cron — anything non-interactive)
 if [ ! -t 0 ]; then

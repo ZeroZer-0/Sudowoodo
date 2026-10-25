@@ -103,11 +103,14 @@ assert_fail "ssh: -o ProxyCommand" \
     timeout 3 ssh -o ConnectTimeout=1 -o ProxyCommand="none" \
     -o BatchMode=yes localhost true 2>/dev/null
 
-# su with -s (specify shell)
-assert_fail "su: -s /bin/sh" timeout 5 su -s /bin/sh -c "echo test" nobody </dev/null 2>/dev/null
-
-# su with - (login shell)
-assert_fail "su: - (login shell)" timeout 5 su - -c "echo test" </dev/null 2>/dev/null
+# su with -s (specify shell) — root can su without password, so skip when root
+if [ "$(id -u)" -ne 0 ]; then
+    assert_fail "su: -s /bin/sh" timeout 5 su -s /bin/sh -c "echo test" nobody </dev/null 2>/dev/null
+    assert_fail "su: - (login shell)" timeout 5 su - -c "echo test" </dev/null 2>/dev/null
+else
+    skip_test "su: -s /bin/sh" "root can su without password"
+    skip_test "su: - (login shell)" "root can su without password"
+fi
 
 echo ""
 summary

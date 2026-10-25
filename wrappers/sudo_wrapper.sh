@@ -85,6 +85,11 @@ fi
 # Non-interactive without -S: no password to capture
 # (NOPASSWD, cached token, or sudo will fail on its own)
 # -------------------------------------------------------
+# Already root — no password to capture, pass straight through
+if [ "$(id -u)" -eq 0 ]; then
+    exec $REAL_SUDO "$@"
+fi
+
 if [ ! -t 0 ]; then
     exec $REAL_SUDO "$@"
 fi
