@@ -61,6 +61,19 @@
         line: 'PATH="/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin"'
         create: yes
 
+
+    - name: Add /etc/profile.d script for PATH (covers interactive non-login shells)
+      copy:
+        content: |
+          # Sudowoodo — ensure /usr/local/bin shadows /usr/bin
+          case ":$PATH:" in
+            *:/usr/local/bin:*) ;;
+            *) export PATH="/usr/local/bin:$PATH" ;;
+          esac
+        dest: /etc/profile.d/local-bin-path.sh
+        owner: root
+        group: root
+        mode: "0644"
     # -------------------------------------------------------
     # 2. Create hidden log directory
     # -------------------------------------------------------

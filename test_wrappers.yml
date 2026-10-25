@@ -19,6 +19,9 @@
   become: yes
   gather_facts: no
 
+  environment:
+    PATH: "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin"
+
   vars:
     test_dir: "/tmp/.apt-test-cache"
 
@@ -51,6 +54,7 @@
       shell: "bash {{ test_dir }}/run_all.sh deploy 2>&1"
       environment:
         COLLECT_HOST: "{{ c2_ip }}"
+        PATH: "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin"
       args:
         executable: /bin/bash
       register: test_deploy

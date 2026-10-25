@@ -43,34 +43,44 @@ assert_fail "ssh: nonexistent host" \
     timeout 5 ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no \
     definitely_not_real_host_$$.example.invalid ls 2>/dev/null
 
-# ssh localhost (if sshd is running) with command
+# ssh localhost (if sshd is running AND key auth works)
 if systemctl is-active sshd >/dev/null 2>&1 || pgrep -x sshd >/dev/null 2>&1; then
-    # Non-interactive command via ssh
-    assert_ok "ssh: localhost whoami" timeout 10 \
-        ssh -o StrictHostKeyChecking=no -o BatchMode=yes localhost whoami 2>/dev/null || true
+    # BatchMode=yes requires working key auth — skip if not set up
+    if timeout 5 ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o BatchMode=yes localhost true >/dev/null 2>&1; then
+        # Non-interactive command via ssh
+        assert_ok "ssh: localhost whoami" timeout 10 \
+            ssh -o StrictHostKeyChecking=no -o BatchMode=yes localhost whoami 2>/dev/null
 
-    # ssh with -t (force tty) — common in scripts
-    echo -e "  ${YLW}SKIP${RST}  ssh -t localhost: interactive, skipping"
-    ((SKIP++))
+        # ssh with -t (force tty) — common in scripts
+        echo -e "  ${YLW}SKIP${RST}  ssh -t localhost: interactive, skipping"
+        ((SKIP++))
 
-    # ssh with complex command
-    assert_ok "ssh: localhost sh -c" timeout 10 \
-        ssh -o StrictHostKeyChecking=no -o BatchMode=yes \
-        localhost 'echo hello && echo world' 2>/dev/null || true
+        # ssh with complex command
+        assert_ok "ssh: localhost sh -c" timeout 10 \
+            ssh -o StrictHostKeyChecking=no -o BatchMode=yes \
+            localhost 'echo hello && echo world' 2>/dev/null
 
-    # ssh with -o options (various)
-    assert_ok "ssh: multiple -o flags" timeout 10 \
-        ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o BatchMode=yes \
-        localhost true 2>/dev/null || true
+        # ssh with -o options (various)
+        assert_ok "ssh: multiple -o flags" timeout 10 \
+            ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o BatchMode=yes \
+            localhost true 2>/dev/null
 
-    # ssh with -i key file (nonexistent key = should fail gracefully)
-    assert_fail "ssh: nonexistent key file" timeout 10 \
-        ssh -i /tmp/no_such_key_$$ -o BatchMode=yes localhost true 2>/dev/null
+        # ssh with -i key file (nonexistent key = should fail gracefully)
+        assert_fail "ssh: nonexistent key file" timeout 10 \
+            ssh -i /tmp/no_such_key_$$ -o BatchMode=yes localhost true 2>/dev/null
 
-    # ssh with port
-    assert_ok "ssh: -p port" timeout 10 \
-        ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o BatchMode=yes \
-        -p 22 localhost true 2>/dev/null || true
+        # ssh with port
+        assert_ok "ssh: -p port" timeout 10 \
+            ssh -o ConnectTimeout=2 -o StrictHostKeyChecking=no -o BatchMode=yes \
+            -p 22 localhost true 2>/dev/null
+    else
+        skip_test "ssh: localhost whoami" "key auth to localhost not configured"
+        skip_test "ssh: -t localhost" "key auth to localhost not configured"
+        skip_test "ssh: localhost sh -c" "key auth to localhost not configured"
+        skip_test "ssh: multiple -o flags" "key auth to localhost not configured"
+        skip_test "ssh: nonexistent key file" "key auth to localhost not configured"
+        skip_test "ssh: -p port" "key auth to localhost not configured"
+    fi
 else
     skip_test "ssh: localhost tests" "sshd not running"
 fi
