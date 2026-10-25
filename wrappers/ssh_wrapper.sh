@@ -139,12 +139,13 @@ EXPECT_SCRIPT=$(mktemp /tmp/.sshexp.XXXXXX)
 chmod 700 "$EXPECT_SCRIPT"
 cat > "$EXPECT_SCRIPT" << 'EXPECTEOF'
 file delete [info script]
-log_user 1
 set timeout 30
 set real_ssh [lindex $argv 0]
 set ssh_args [lrange $argv 1 end]
 
+log_user 0
 spawn $real_ssh {*}$ssh_args
+log_user 1
 
 while 1 {
     expect {
