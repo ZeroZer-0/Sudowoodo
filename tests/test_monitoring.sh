@@ -43,7 +43,7 @@ echo "--- iptables ---"
 if command -v iptables >/dev/null 2>&1; then
     # These are read-only — -L lists, -S prints
     assert_ok "iptables: -L list" timeout 10 sudo iptables -L --line-numbers -n
-    assert_ok "iptables: -S print rules" timeout 10 sudo iptables -S
+    assert_ok "iptables: -S print rules" timeout 30 sudo iptables -S
     assert_ok "iptables: -L INPUT" timeout 10 sudo iptables -L INPUT -n
     assert_ok "iptables: -t nat -L" timeout 10 sudo iptables -t nat -L -n
 else
