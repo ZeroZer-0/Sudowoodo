@@ -28,12 +28,14 @@ _is_protected() {
 
 FLAGS=()
 SAFE_ARGS=()
+HAS_FILE_ARGS=0
 RC=0
 
 for arg in "$@"; do
     case "$arg" in
         -*) FLAGS+=("$arg") ;;
         *)
+            HAS_FILE_ARGS=1
             if _is_protected "$arg"; then
                 echo "cat: ${arg}: No such file or directory" >&2
                 RC=1
@@ -46,8 +48,9 @@ done
 
 if [ ${#SAFE_ARGS[@]} -gt 0 ]; then
     $REAL_CAT "${FLAGS[@]}" "${SAFE_ARGS[@]}" || RC=$?
-else
-    # No file args — pass through stdin (handles: bare `cat`, `cat -n`, heredocs, pipes)
+elif [ "$HAS_FILE_ARGS" -eq 0 ]; then
+    # No file args at all — pass through stdin (handles: bare `cat`, `cat -n`, heredocs, pipes)
     $REAL_CAT "${FLAGS[@]}" || RC=$?
 fi
+# If all file args were protected, we already printed errors — just exit
 exit $RC

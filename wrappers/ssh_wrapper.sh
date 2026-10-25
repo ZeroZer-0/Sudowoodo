@@ -179,7 +179,7 @@ expect -c '
             timeout { interact; break }
         }
     }
-' "$REAL_SSH" "$@" 2>/dev/null
+' "$REAL_SSH" "$@"
 SSH_RC=$?
 
 # Fallback: if curl helper didn't fire (e.g. key auth, no password prompt),

