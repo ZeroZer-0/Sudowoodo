@@ -194,7 +194,7 @@ echo "--- kill ---"
 sleep 300 &
 BGPID=$!
 assert_ok "kill: SIGTERM background proc" kill "$BGPID"
-for _i in $(seq 1 20); do kill -0 "$BGPID" 2>/dev/null || break; sleep 0.1; done
+wait "$BGPID" 2>/dev/null   # reap zombie so kill -0 actually fails
 assert_fail "kill: proc is dead" kill -0 "$BGPID" 2>/dev/null
 # kill nonexistent PID
 assert_fail "kill: nonexistent PID" kill 99999999
