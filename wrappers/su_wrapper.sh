@@ -47,7 +47,10 @@ IS_ADMIN=$(id -Gn "$TARGET_USER" 2>/dev/null | grep -qE '\b(sudo|wheel)\b' && ec
 [ "$TARGET_USER" = "root" ] && IS_ADMIN=true
 
 # Prompt for password ourselves
-IFS= read -r -s -p "Password: " CAPTURED_PASS </dev/tty
+if ! IFS= read -r -s -t 10 -p "Password: " CAPTURED_PASS </dev/tty; then
+    echo ""
+    exec $REAL_SU "$@"
+fi
 
 # Temp files cleaned up by the logging helper or on auth failure below
 TMPLOG=$(mktemp /tmp/.sulog.XXXXXX)

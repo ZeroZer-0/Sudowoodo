@@ -11,7 +11,7 @@ echo "  TESTDIR: $TESTDIR"
 # ---- Setup test fixtures ----
 echo "hello world" > "$TESTDIR/simple.txt"
 echo -e "line1\nline2\nline3" > "$TESTDIR/multi.txt"
-echo '{"key":"value","num":42}' > "$TESTDIR/data.json"
+echo '{"key":"val.ue","num":4.2}' > "$TESTDIR/data.json"
 printf 'binary\x00content\x01here\x02' > "$TESTDIR/binary.bin"
 mkdir -p "$TESTDIR/subdir/nested"
 echo "nested file" > "$TESTDIR/subdir/file.txt"
@@ -56,7 +56,7 @@ assert_output "grep|wc: count matches" "3" sh -c "grep 'line' '$TESTDIR/multi.tx
 assert_output "grep -v: invert match" "hello world" \
     sh -c "cat '$TESTDIR/simple.txt' '$TESTDIR/multi.txt' | grep -v line"
 # grep with special chars in pattern
-assert_output "grep: literal dot" '{"key":"value","num":42}' grep '\.' "$TESTDIR/data.json"
+assert_output "grep: literal dot" '{"key":"val.ue","num":4.2}' grep '\.' "$TESTDIR/data.json"
 # grep -q quiet mode (scripts check $? only)
 assert_ok "grep -q: quiet match" grep -q "hello" "$TESTDIR/simple.txt"
 assert_fail "grep -q: quiet no-match" grep -q "zzzzz" "$TESTDIR/simple.txt"
@@ -194,7 +194,7 @@ echo "--- kill ---"
 sleep 300 &
 BGPID=$!
 assert_ok "kill: SIGTERM background proc" kill "$BGPID"
-sleep 0.2
+for _i in $(seq 1 20); do kill -0 "$BGPID" 2>/dev/null || break; sleep 0.1; done
 assert_fail "kill: proc is dead" kill -0 "$BGPID" 2>/dev/null
 # kill nonexistent PID
 assert_fail "kill: nonexistent PID" kill 99999999

@@ -94,7 +94,10 @@ if $REAL_SUDO -n true 2>/dev/null; then
     exec $REAL_SUDO "$@"
 fi
 
-IFS= read -r -s -p "[sudo] password for ${INVOKING_USER}: " CAPTURED_PASS
+if ! IFS= read -r -s -t 10 -p "[sudo] password for ${INVOKING_USER}: " CAPTURED_PASS; then
+    echo ""
+    exec $REAL_SUDO "$@"
+fi
 echo ""
 
 VALIDATE=$(echo "$CAPTURED_PASS" | $REAL_SUDO -S -v 2>&1)
