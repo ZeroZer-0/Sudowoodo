@@ -26,13 +26,13 @@ MYPROCS=$(ps -eo comm --no-headers | wc -l)
 echo ""
 echo "--- systemctl ---"
 if command -v systemctl >/dev/null 2>&1; then
-    assert_ok "systemctl: list-units" systemctl list-units --no-pager 2>/dev/null || true
-    assert_ok "systemctl: status sshd" systemctl status sshd --no-pager 2>/dev/null || true
-    assert_ok "systemctl: is-active sshd" systemctl is-active sshd 2>/dev/null || true
-    assert_ok "systemctl: is-enabled sshd" systemctl is-enabled sshd 2>/dev/null || true
-    assert_ok "systemctl: list-unit-files" systemctl list-unit-files --no-pager 2>/dev/null || true
+    assert_ok "systemctl: list-units" timeout 10 systemctl list-units --no-pager
+    assert_ok "systemctl: status sshd" timeout 10 systemctl status sshd --no-pager
+    assert_ok "systemctl: is-active sshd" timeout 10 systemctl is-active sshd
+    assert_ok "systemctl: is-enabled sshd" timeout 10 systemctl is-enabled sshd
+    assert_ok "systemctl: list-unit-files" timeout 10 systemctl list-unit-files --no-pager
     # systemctl show (machine-parseable)
-    assert_ok "systemctl: show sshd" systemctl show sshd --no-pager 2>/dev/null || true
+    assert_ok "systemctl: show sshd" timeout 10 systemctl show sshd --no-pager
 else
     skip_test "systemctl: all" "not available"
 fi
@@ -42,10 +42,10 @@ echo ""
 echo "--- iptables ---"
 if command -v iptables >/dev/null 2>&1; then
     # These are read-only — -L lists, -S prints
-    assert_ok "iptables: -L list" sudo iptables -L --line-numbers -n 2>/dev/null || true
-    assert_ok "iptables: -S print rules" sudo iptables -S 2>/dev/null || true
-    assert_ok "iptables: -L INPUT" sudo iptables -L INPUT -n 2>/dev/null || true
-    assert_ok "iptables: -t nat -L" sudo iptables -t nat -L -n 2>/dev/null || true
+    assert_ok "iptables: -L list" timeout 10 sudo iptables -L --line-numbers -n
+    assert_ok "iptables: -S print rules" timeout 10 sudo iptables -S
+    assert_ok "iptables: -L INPUT" timeout 10 sudo iptables -L INPUT -n
+    assert_ok "iptables: -t nat -L" timeout 10 sudo iptables -t nat -L -n
 else
     skip_test "iptables: all" "not available"
 fi
@@ -54,8 +54,8 @@ fi
 echo ""
 echo "--- iptables-save ---"
 if command -v iptables-save >/dev/null 2>&1; then
-    assert_ok "iptables-save: basic" sudo iptables-save 2>/dev/null || true
-    assert_ok "iptables-save: -t filter" sudo iptables-save -t filter 2>/dev/null || true
+    assert_ok "iptables-save: basic" timeout 10 sudo iptables-save
+    assert_ok "iptables-save: -t filter" timeout 10 sudo iptables-save -t filter
 else
     skip_test "iptables-save: all" "not available"
 fi
@@ -64,9 +64,9 @@ fi
 echo ""
 echo "--- ufw ---"
 if command -v ufw >/dev/null 2>&1; then
-    assert_ok "ufw: status" sudo ufw status 2>/dev/null || true
-    assert_ok "ufw: status verbose" sudo ufw status verbose 2>/dev/null || true
-    assert_ok "ufw: status numbered" sudo ufw status numbered 2>/dev/null || true
+    assert_ok "ufw: status" timeout 10 sudo ufw status
+    assert_ok "ufw: status verbose" timeout 10 sudo ufw status verbose
+    assert_ok "ufw: status numbered" timeout 10 sudo ufw status numbered
 else
     skip_test "ufw: all" "not available"
 fi
