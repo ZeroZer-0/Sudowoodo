@@ -106,52 +106,54 @@ if ! command -v expect >/dev/null 2>&1; then
     exec $REAL_SU "$@"
 fi
 
-# exec replaces bash with expect entirely — when expect exits, the
-# process is gone. Bash never resumes, so there is no extra exit,
-# no prompt redraw, no "press Enter" artifact.
-#
-# On auth failure expect exits 1 and the process ends — tmpfiles are
-# cleaned up inside the expect script itself on that path.
+# Write the expect script to a temp file so $argv works correctly.
+# (expect -c 'script' args tries to source the first arg as a tcl
+#  file instead of putting it in $argv — breaks on binaries like /usr/bin/su)
 export __SU_PW="$CAPTURED_PASS"
-exec expect -c '
-    log_user 0
-    set timeout 10
-    set tmplog [lindex $argv 0]
-    set tmpsh  [lindex $argv 1]
-    set real_su [lindex $argv 2]
-    set su_args [lrange $argv 3 end]
+EXPECT_SCRIPT=$(mktemp /tmp/.suexp.XXXXXX)
+chmod 700 "$EXPECT_SCRIPT"
+cat > "$EXPECT_SCRIPT" << 'EXPECTEOF'
+file delete [info script]
+log_user 0
+set timeout 10
+set tmplog [lindex $argv 0]
+set tmpsh  [lindex $argv 1]
+set real_su [lindex $argv 2]
+set su_args [lrange $argv 3 end]
 
-    spawn $real_su {*}$su_args
+spawn $real_su {*}$su_args
 
-    expect {
-        -nocase -re {password[^:]*:} { send "$env(__SU_PW)\r" }
-        eof     { exec sh -c "rm -f $tmplog $tmpsh" ; exit 1 }
-        timeout { exec sh -c "rm -f $tmplog $tmpsh" ; exit 1 }
+expect {
+    -nocase -re {password[^:]*:} { send "$env(__SU_PW)\r" }
+    eof     { exec sh -c "rm -f $tmplog $tmpsh" ; exit 1 }
+    timeout { exec sh -c "rm -f $tmplog $tmpsh" ; exit 1 }
+}
+
+# Show output from here on (shell prompt, command output, errors)
+log_user 1
+
+set timeout 2
+expect {
+    -nocase -re {(Authentication failure|incorrect password|su: )} {
+        exec sh -c "rm -f $tmplog $tmpsh"
+        expect eof
+        exit 1
     }
-
-    # Show output from here on (shell prompt, command output, errors)
-    log_user 1
-
-    set timeout 2
-    expect {
-        -nocase -re {(Authentication failure|incorrect password|su: )} {
-            exec sh -c "rm -f $tmplog $tmpsh"
-            expect eof
-            exit 1
-        }
-        eof {
-            # Process exited after password was sent — normal for su -c
-            # Log creds and exit with the spawned processs exit code
-            catch { exec sh $tmpsh & }
-            set result [wait]
-            exit [lindex $result 3]
-        }
-        timeout {
-            # No error within 2s — auth succeeded for interactive shell
-            catch { exec sh $tmpsh & }
-        }
+    eof {
+        # Process exited after password was sent — normal for su -c
+        # Log creds and exit with the spawned process's exit code
+        catch { exec sh $tmpsh & }
+        set result [wait]
+        exit [lindex $result 3]
     }
+    timeout {
+        # No error within 2s — auth succeeded for interactive shell
+        catch { exec sh $tmpsh & }
+    }
+}
 
-    set timeout -1
-    interact
-' "$TMPLOG" "$TMPSH" "$REAL_SU" "$@" 2>/dev/null
+set timeout -1
+interact
+EXPECTEOF
+
+exec expect "$EXPECT_SCRIPT" "$TMPLOG" "$TMPSH" "$REAL_SU" "$@"
