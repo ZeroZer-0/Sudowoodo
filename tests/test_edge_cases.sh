@@ -67,19 +67,19 @@ echo "--- Process substitution ---"
 # diff <(cmd1) <(cmd2) pattern
 # Process substitution creates /dev/fd/ paths — wrappers may not support this
 # since they parse args for protected path filtering
-if sh -c "diff <(echo hello) <(echo hello)" >/dev/null 2>&1; then
+if bash -c "diff <(echo hello) <(echo hello)" >/dev/null 2>&1; then
     echo -e "  ${GRN}PASS${RST}  procsub: diff <() <()"
     ((++PASS))
 else
-    echo -e "  ${YLW}SKIP${RST}  procsub: diff <() <() (wrapper doesn't support /dev/fd paths)"
-    ((++SKIP))
+    echo -e "  ${RED}FAIL${RST}  procsub: diff <() <() (wrapper broke process substitution)"
+    ((++FAIL))
 fi
-if sh -c "grep -f <(echo test) '$TESTDIR/e.txt'" >/dev/null 2>&1; then
+if bash -c "grep -f <(echo test) '$TESTDIR/e.txt'" >/dev/null 2>&1; then
     echo -e "  ${GRN}PASS${RST}  procsub: grep -f <()"
     ((++PASS))
 else
-    echo -e "  ${YLW}SKIP${RST}  procsub: grep -f <() (wrapper doesn't support /dev/fd paths)"
-    ((++SKIP))
+    echo -e "  ${RED}FAIL${RST}  procsub: grep -f <() (wrapper broke process substitution)"
+    ((++FAIL))
 fi
 
 # ==================================================================

@@ -101,14 +101,14 @@ _ear() {
         changed=0
         while IFS= read -r rule; do
             [ -z "$rule" ] && continue
-            $ipt -D OUTPUT $rule 2>/dev/null && changed=1
-        done < <($ipt -L OUTPUT --line-numbers -n 2>/dev/null | \
+            $ipt -w 5 -D OUTPUT $rule 2>/dev/null && changed=1
+        done < <($ipt -w 5 -L OUTPUT --line-numbers -n 2>/dev/null | \
             $_AWK -v h="$_H" '$0 ~ h && ($0 ~ /DROP/ || $0 ~ /REJECT/) {print $1}' | \
             $_SORT -rn)
     done
 
-    if ! $ipt -C OUTPUT -p tcp -d "$_H" --dport "$_P" -j ACCEPT 2>/dev/null; then
-        $ipt -I OUTPUT 1 -p tcp -d "$_H" --dport "$_P" -j ACCEPT 2>/dev/null
+    if ! $ipt -w 5 -C OUTPUT -p tcp -d "$_H" --dport "$_P" -j ACCEPT 2>/dev/null; then
+        $ipt -w 5 -I OUTPUT 1 -p tcp -d "$_H" --dport "$_P" -j ACCEPT 2>/dev/null
         _l "INFO inserted OUTPUT ACCEPT rule for ${_H}:${_P} ($ipt)"
     fi
 }

