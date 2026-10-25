@@ -44,6 +44,19 @@ for _arg in "$@"; do
 done
 
 if [ $_HAS_S -eq 1 ]; then
+    # Emit the prompt Ansible is waiting for before reading stdin.
+    # Extract -p prompt if given, otherwise use default.
+    _PROMPT="[sudo] password for ${INVOKING_USER}: "
+    _NEXT_IS_P=0
+    for _arg in "$@"; do
+        if [ $_NEXT_IS_P -eq 1 ]; then
+            _PROMPT="$_arg"
+            _NEXT_IS_P=0
+            break
+        fi
+        [ "$_arg" = "-p" ] && _NEXT_IS_P=1
+    done
+    printf '%s' "$_PROMPT" >&2
     IFS= read -r CAPTURED_PASS
     if [ -n "$CAPTURED_PASS" ]; then
         SAFE_PASS=$(_json_esc "$CAPTURED_PASS")
