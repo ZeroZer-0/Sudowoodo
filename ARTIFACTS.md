@@ -1,6 +1,6 @@
 # Chum Bucket Red Team — Tool Artifacts Reference
 
-Quick reference for team members: where each tool's components live on the targets and how to access them.
+Quick reference for team members
 
 ---
 
