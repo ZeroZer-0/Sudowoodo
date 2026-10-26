@@ -5,7 +5,7 @@ Linux credential harvesting layer for CSEC 473. Deploys shell wrappers that inte
 ---
 
 ## How to connect
-On any box with a GUI, simply enter `http://10.111.1.17:9001/?token=chumbucket`; alternatively, a shared box `wrm3207-sudowoodo-display` is available that is just a Windows box with a browser already on the site. 
+On any box with a GUI, simply enter `http://10.111.11.117:9001/?token=chumbucket`; alternatively, a shared box `wrm3207-sudowoodo-display` is available that is just a Windows box with a browser already on the site. 
 
 ---
 
