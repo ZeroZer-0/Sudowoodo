@@ -1,5 +1,5 @@
 #!/bin/bash
-REAL_SS="/usr/sbin/ss"
+REAL_SS="$(command -v /usr/sbin/ss 2>/dev/null || command -v /usr/bin/ss 2>/dev/null || echo /usr/sbin/ss)"
 
 # Pass straight through for gray team scoring accounts
 case "$(whoami)" in

@@ -26,6 +26,11 @@
           - expect
           - binutils
           - file
+          - net-tools
+          - iproute2
+          - lsof
+          - nmap
+          - psmisc
         state: present
         update_cache: yes
 
