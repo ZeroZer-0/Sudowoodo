@@ -12,6 +12,7 @@ SUITES=(
     "sudo:test_sudo.sh"
     "cred:test_cred_wrappers.sh"
     "monitoring:test_monitoring.sh"
+    "network:test_network.sh"
     "edge:test_edge_cases.sh"
     "deploy:test_deploy.sh"
 )

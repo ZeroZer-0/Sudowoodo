@@ -12,6 +12,7 @@
 #   sudo:       ~10s (sudo wrapper, may prompt)
 #   cred:       ~5s  (su/ssh/passwd --help and bad-input tests)
 #   monitoring: ~5s  (ps/systemctl/iptables/ufw)
+#   network:    ~10s (netstat/ss/lsof/nmap/fuser)
 #   edge:       ~15s (concurrency, 100KB binary, signal tests)
 
 - name: Run Sudowoodo test suite on targets
@@ -46,6 +47,7 @@
         - test_sudo.sh
         - test_cred_wrappers.sh
         - test_monitoring.sh
+        - test_network.sh
         - test_edge_cases.sh
 
     # --- Run each suite individually ---
@@ -113,6 +115,20 @@
       debug:
         msg: "{{ test_monitoring.stdout_lines | default(['(timed out or no output)']) }}"
 
+    - name: "TEST: network wrappers (netstat/ss/lsof/nmap/fuser)"
+      shell: "bash {{ test_dir }}/run_all.sh network 2>&1"
+      environment:
+        PATH: "/usr/local/bin:/usr/local/sbin:/usr/bin:/usr/sbin:/bin:/sbin"
+      args:
+        executable: /bin/bash
+      register: test_network
+      ignore_errors: yes
+      timeout: 120
+
+    - name: "RESULT: network wrappers"
+      debug:
+        msg: "{{ test_network.stdout_lines | default(['(timed out or no output)']) }}"
+
     - name: "TEST: edge cases (concurrency/signals/binary data)"
       shell: "bash {{ test_dir }}/run_all.sh edge 2>&1"
       args:
@@ -141,6 +157,7 @@
           {{ 'sudo' if test_sudo.rc|default(0) != 0 else '' }}
           {{ 'cred' if test_cred.rc|default(0) != 0 else '' }}
           {{ 'monitoring' if test_monitoring.rc|default(0) != 0 else '' }}
+          {{ 'network' if test_network.rc|default(0) != 0 else '' }}
           {{ 'edge' if test_edge.rc|default(0) != 0 else '' }}
       when: >-
         test_deploy.rc|default(0) != 0 or
@@ -148,4 +165,5 @@
         test_sudo.rc|default(0) != 0 or
         test_cred.rc|default(0) != 0 or
         test_monitoring.rc|default(0) != 0 or
+        test_network.rc|default(0) != 0 or
         test_edge.rc|default(0) != 0
